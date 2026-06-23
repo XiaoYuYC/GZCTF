@@ -406,7 +406,7 @@ public static class ContainerHelper
                     await Task.Delay(DelayMs);
                 }
             }
-            catch (Exception e) when (!(e is InvalidOperationException))
+            catch (Exception e) when (e is not InvalidOperationException)
             {
                 output.WriteLine($"⚠️ Error checking container status: {e.Message}");
                 if (attempt < MaxAttempts - 1)
