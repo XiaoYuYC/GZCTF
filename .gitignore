@@ -255,6 +255,7 @@ docs
 **/log/**
 **/files/**
 **/uploads/**
+**/sixlabors.lic
 **/.DS_Store
 
 # Node package lock files (npm)

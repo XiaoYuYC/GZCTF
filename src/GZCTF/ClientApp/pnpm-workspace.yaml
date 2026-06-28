@@ -3,3 +3,5 @@ allowBuilds:
 minimumReleaseAge: 360
 overrides:
   canvas: npm:dry-uninstall
+publicHoistPattern:
+  - pdfjs-dist

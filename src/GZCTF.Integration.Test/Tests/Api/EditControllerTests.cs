@@ -38,7 +38,7 @@ public class EditControllerTests(GZCTFApplicationFactory factory, ITestOutputHel
         var game = await TestDataSeeder.CreateGameAsync(factory.Services, "Scoreboard Test Game");
         var challenge1 = await TestDataSeeder.CreateStaticChallengeAsync(factory.Services, game.Id,
             "Challenge 1", "flag{test1}", originalScore: 1000);
-        var challenge2 = await TestDataSeeder.CreateStaticChallengeAsync(factory.Services, game.Id,
+        _ = await TestDataSeeder.CreateStaticChallengeAsync(factory.Services, game.Id,
             "Challenge 2", "flag{test2}", originalScore: 500);
 
         // Create user and team to generate submissions
