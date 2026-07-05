@@ -3,6 +3,13 @@
 All notable changes to [**GZCTF**](https://github.com/GZTimeWalker/GZCTF) will be documented in this file.
 
 ---
+## [1.8.7](https://github.com/GZTimeWalker/GZCTF/compare/v1.8.6..v1.8.7) - 2026-07-05
+
+### ⛰️ Features
+
+- **(mail)** configuring SMTP server for no-authentication access (#586) - ([424893](https://github.com/GZTimeWalker/GZCTF/commit/424893)) by **Copilot**
+
+---
 ## [1.8.6](https://github.com/GZTimeWalker/GZCTF/compare/v1.8.5..v1.8.6) - 2026-06-06
 
 ### 🐛 Bug Fixes
