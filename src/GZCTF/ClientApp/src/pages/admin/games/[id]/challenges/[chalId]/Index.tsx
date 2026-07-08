@@ -614,9 +614,9 @@ const GameChallengeEdit: FC = () => {
         }}
         opened={previewOpened}
         onClose={() => setPreviewOpened(false)}
-        cateData={
-          challengeCategoryLabelMap.get((challengeInfo?.category as ChallengeCategory) ?? ChallengeCategory.Misc)!
-        }
+        cateData={challengeCategoryLabelMap.get(
+          (challengeInfo?.category as ChallengeCategory) ?? ChallengeCategory.Misc
+        )!}
       />
     </WithChallengeEdit>
   )

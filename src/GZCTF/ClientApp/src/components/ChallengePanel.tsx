@@ -287,9 +287,9 @@ export const ChallengePanel: FC = () => {
           gameEnded={dayjs(game?.end) < dayjs()}
           practiceMode={game?.practiceMode}
           status={teamInfo?.rank?.solvedChallenges?.find((c) => c.id === challenge?.id)?.type}
-          cateData={
-            challengeCategoryLabelMap.get((challenge?.category as ChallengeCategory) ?? ChallengeCategory.Misc)!
-          }
+          cateData={challengeCategoryLabelMap.get(
+            (challenge?.category as ChallengeCategory) ?? ChallengeCategory.Misc
+          )!}
           title={challenge?.title ?? ''}
           score={challenge?.score ?? 0}
           challengeId={challenge.id}
