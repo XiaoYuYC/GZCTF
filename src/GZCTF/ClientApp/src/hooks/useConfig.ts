@@ -76,11 +76,10 @@ export const ValidatedRepoMeta = () => {
 
   const tag = rawTag.replace(/-.*$/, '')
 
-  const valid =
-    timestamp.length === 20 &&
+  const valid = timestamp.length === 20 &&
     buildtime.isValid() &&
-    sha.length === 40 &&
-    (/^v\d+\.\d+\.\d+$/i.test(tag) || tag === 'develop')
+    /^[0-9a-f]{40}$/i.test(sha) &&
+    /^v\d+\.\d+\.\d+$/i.test(tag)
 
   return { valid, tag, ...RepoMeta }
 }
