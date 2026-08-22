@@ -2503,28 +2503,12 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get user information. User permissions required.
-     *
-     * @tags Account
-     * @name AccountProfile
-     * @summary Get user information
-     * @request GET:/api/account/profile
-     */
     useAccountProfile: (options?: SWRConfiguration, doFetch: boolean = true) =>
       useSWR<ProfileUserInfoModel, RequestResponse>(
         doFetch ? `/api/account/profile` : null,
         options,
       ),
 
-    /**
-     * @description Use this API to get user information. User permissions required.
-     *
-     * @tags Account
-     * @name AccountProfile
-     * @summary Get user information
-     * @request GET:/api/account/profile
-     */
     mutateAccountProfile: (
       data?: ProfileUserInfoModel | Promise<ProfileUserInfoModel>,
       options?: MutatorOptions,
@@ -2712,14 +2696,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get all files, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminFiles
-     * @summary Get all files
-     * @request GET:/api/admin/files
-     */
     useAdminFiles: (
       query?: {
         /**
@@ -2743,14 +2719,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Use this API to get all files, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminFiles
-     * @summary Get all files
-     * @request GET:/api/admin/files
-     */
     mutateAdminFiles: (
       query?: {
         /**
@@ -2790,28 +2758,12 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get global settings, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminGetConfigs
-     * @summary Get configuration
-     * @request GET:/api/admin/config
-     */
     useAdminGetConfigs: (options?: SWRConfiguration, doFetch: boolean = true) =>
       useSWR<ConfigEditModel, RequestResponse>(
         doFetch ? `/api/admin/config` : null,
         options,
       ),
 
-    /**
-     * @description Use this API to get global settings, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminGetConfigs
-     * @summary Get configuration
-     * @request GET:/api/admin/config
-     */
     mutateAdminGetConfigs: (
       data?: ConfigEditModel | Promise<ConfigEditModel>,
       options?: MutatorOptions,
@@ -2832,28 +2784,12 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get all container instances, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminInstances
-     * @summary Get all container instances
-     * @request GET:/api/admin/instances
-     */
     useAdminInstances: (options?: SWRConfiguration, doFetch: boolean = true) =>
       useSWR<ArrayResponseOfContainerInstanceModel, RequestResponse>(
         doFetch ? `/api/admin/instances` : null,
         options,
       ),
 
-    /**
-     * @description Use this API to get all container instances, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminInstances
-     * @summary Get all container instances
-     * @request GET:/api/admin/instances
-     */
     mutateAdminInstances: (
       data?:
         | ArrayResponseOfContainerInstanceModel
@@ -2900,14 +2836,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get all logs, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminLogs
-     * @summary Get all logs
-     * @request GET:/api/admin/logs
-     */
     useAdminLogs: (
       query?: {
         /** @default "All" */
@@ -2933,14 +2861,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Use this API to get all logs, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminLogs
-     * @summary Get all logs
-     * @request GET:/api/admin/logs
-     */
     mutateAdminLogs: (
       query?: {
         /** @default "All" */
@@ -3090,14 +3010,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get all teams, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminTeams
-     * @summary Get all team information
-     * @request GET:/api/admin/teams
-     */
     useAdminTeams: (
       query?: {
         /**
@@ -3121,14 +3033,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Use this API to get all teams, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminTeams
-     * @summary Get all team information
-     * @request GET:/api/admin/teams
-     */
     mutateAdminTeams: (
       query?: {
         /**
@@ -3252,14 +3156,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get user information, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminUserInfo
-     * @summary Get user information
-     * @request GET:/api/admin/users/{userid}
-     */
     useAdminUserInfo: (
       userid: string,
       options?: SWRConfiguration,
@@ -3270,14 +3166,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Use this API to get user information, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminUserInfo
-     * @summary Get user information
-     * @request GET:/api/admin/users/{userid}
-     */
     mutateAdminUserInfo: (
       userid: string,
       data?: ProfileUserInfoModel | Promise<ProfileUserInfoModel>,
@@ -3317,14 +3205,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get all users, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminUsers
-     * @summary Get all users
-     * @request GET:/api/admin/users
-     */
     useAdminUsers: (
       query?: {
         /**
@@ -3348,14 +3228,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Use this API to get all users, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminUsers
-     * @summary Get all users
-     * @request GET:/api/admin/users
-     */
     mutateAdminUsers: (
       query?: {
         /**
@@ -3397,14 +3269,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Use this API to get Writeup basic information, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminWriteups
-     * @summary Get all Writeup basic information
-     * @request GET:/api/admin/writeups/{id}
-     */
     useAdminWriteups: (
       id: number,
       options?: SWRConfiguration,
@@ -3415,14 +3279,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Use this API to get Writeup basic information, requires Admin permission
-     *
-     * @tags Admin
-     * @name AdminWriteups
-     * @summary Get all Writeup basic information
-     * @request GET:/api/admin/writeups/{id}
-     */
     mutateAdminWriteups: (
       id: number,
       data?: WriteupInfoModel | Promise<WriteupInfoModel>,
@@ -3466,14 +3322,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * No description
-     *
-     * @tags ApiToken
-     * @name ApiTokenListTokens
-     * @summary Lists all API tokens.
-     * @request GET:/api/tokens
-     */
     useApiTokenListTokens: (
       options?: SWRConfiguration,
       doFetch: boolean = true,
@@ -3483,14 +3331,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * No description
-     *
-     * @tags ApiToken
-     * @name ApiTokenListTokens
-     * @summary Lists all API tokens.
-     * @request GET:/api/tokens
-     */
     mutateApiTokenListTokens: (
       data?: ApiToken[] | Promise<ApiToken[]>,
       options?: MutatorOptions,
@@ -3894,14 +3734,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieve all divisions for a game; requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetDivisions
-     * @summary Get Divisions
-     * @request GET:/api/edit/games/{id}/divisions
-     */
     useEditGetDivisions: (
       id: number,
       options?: SWRConfiguration,
@@ -3912,14 +3744,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieve all divisions for a game; requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetDivisions
-     * @summary Get Divisions
-     * @request GET:/api/edit/games/{id}/divisions
-     */
     mutateEditGetDivisions: (
       id: number,
       data?: Division[] | Promise<Division[]>,
@@ -3941,14 +3765,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieving a game requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGame
-     * @summary Get Game
-     * @request GET:/api/edit/games/{id}
-     */
     useEditGetGame: (
       id: number,
       options?: SWRConfiguration,
@@ -3959,14 +3775,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieving a game requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGame
-     * @summary Get Game
-     * @request GET:/api/edit/games/{id}
-     */
     mutateEditGetGame: (
       id: number,
       data?: GameInfoModel | Promise<GameInfoModel>,
@@ -3992,14 +3800,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieving a game challenge requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGameChallenge
-     * @summary Get Game Challenge
-     * @request GET:/api/edit/games/{id}/challenges/{cId}
-     */
     useEditGetGameChallenge: (
       id: number,
       cId: number,
@@ -4011,14 +3811,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieving a game challenge requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGameChallenge
-     * @summary Get Game Challenge
-     * @request GET:/api/edit/games/{id}/challenges/{cId}
-     */
     mutateEditGetGameChallenge: (
       id: number,
       cId: number,
@@ -4046,14 +3838,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieving all game challenges requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGameChallenges
-     * @summary Get All Game Challenges
-     * @request GET:/api/edit/games/{id}/challenges
-     */
     useEditGetGameChallenges: (
       id: number,
       options?: SWRConfiguration,
@@ -4064,14 +3848,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieving all game challenges requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGameChallenges
-     * @summary Get All Game Challenges
-     * @request GET:/api/edit/games/{id}/challenges
-     */
     mutateEditGetGameChallenges: (
       id: number,
       data?: ChallengeInfoModel[] | Promise<ChallengeInfoModel[]>,
@@ -4098,14 +3874,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieving game notices requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGameNotices
-     * @summary Get Game Notices
-     * @request GET:/api/edit/games/{id}/notices
-     */
     useEditGetGameNotices: (
       id: number,
       options?: SWRConfiguration,
@@ -4116,14 +3884,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieving game notices requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGameNotices
-     * @summary Get Game Notices
-     * @request GET:/api/edit/games/{id}/notices
-     */
     mutateEditGetGameNotices: (
       id: number,
       data?: GameNotice[] | Promise<GameNotice[]>,
@@ -4158,14 +3918,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieving the game list requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGames
-     * @summary Get Game List
-     * @request GET:/api/edit/games
-     */
     useEditGetGames: (
       query?: {
         /**
@@ -4185,14 +3937,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieving the game list requires administrator privileges
-     *
-     * @tags Edit
-     * @name EditGetGames
-     * @summary Get Game List
-     * @request GET:/api/edit/games
-     */
     mutateEditGetGames: (
       query?: {
         /**
@@ -4456,14 +4200,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves all challenges of the game; requires User permission and active team participation
-     *
-     * @tags Game
-     * @name GameChallengesWithTeamInfo
-     * @summary Get team details in a game
-     * @request GET:/api/game/{id}/details
-     */
     useGameChallengesWithTeamInfo: (
       id: number,
       options?: SWRConfiguration,
@@ -4474,14 +4210,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves all challenges of the game; requires User permission and active team participation
-     *
-     * @tags Game
-     * @name GameChallengesWithTeamInfo
-     * @summary Get team details in a game
-     * @request GET:/api/game/{id}/details
-     */
     mutateGameChallengesWithTeamInfo: (
       id: number,
       data?: GameDetailModel | Promise<GameDetailModel>,
@@ -4503,14 +4231,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves game cheat data; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameCheatInfo
-     * @summary Get game cheat information
-     * @request GET:/api/game/{id}/cheatinfo
-     */
     useGameCheatInfo: (
       id: number,
       options?: SWRConfiguration,
@@ -4521,14 +4241,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves game cheat data; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameCheatInfo
-     * @summary Get game cheat information
-     * @request GET:/api/game/{id}/cheatinfo
-     */
     mutateGameCheatInfo: (
       id: number,
       data?: CheatInfoModel[] | Promise<CheatInfoModel[]>,
@@ -4651,14 +4363,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves game event data; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameEvents
-     * @summary Get game events
-     * @request GET:/api/game/{id}/events
-     */
     useGameEvents: (
       id: number,
       query?: {
@@ -4688,14 +4392,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves game event data; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameEvents
-     * @summary Get game events
-     * @request GET:/api/game/{id}/events
-     */
     mutateGameEvents: (
       id: number,
       query?: {
@@ -4756,14 +4452,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves detailed information about the game
-     *
-     * @tags Game
-     * @name GameGame
-     * @summary Get detailed game information
-     * @request GET:/api/game/{id}
-     */
     useGameGame: (
       id: number,
       options?: SWRConfiguration,
@@ -4774,14 +4462,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves detailed information about the game
-     *
-     * @tags Game
-     * @name GameGame
-     * @summary Get detailed game information
-     * @request GET:/api/game/{id}
-     */
     mutateGameGame: (
       id: number,
       data?: DetailedGameInfoModel | Promise<DetailedGameInfoModel>,
@@ -4820,14 +4500,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves game information in specified range
-     *
-     * @tags Game
-     * @name GameGames
-     * @summary Get games
-     * @request GET:/api/game
-     */
     useGameGames: (
       query?: {
         /**
@@ -4851,14 +4523,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves game information in specified range
-     *
-     * @tags Game
-     * @name GameGames
-     * @summary Get games
-     * @request GET:/api/game
-     */
     mutateGameGames: (
       query?: {
         /**
@@ -4923,14 +4587,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves challenge information; requires User permission and active team participation
-     *
-     * @tags Game
-     * @name GameGetChallenge
-     * @summary Get challenge information
-     * @request GET:/api/game/{id}/challenges/{challengeId}
-     */
     useGameGetChallenge: (
       id: number,
       challengeId: number,
@@ -4942,14 +4598,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves challenge information; requires User permission and active team participation
-     *
-     * @tags Game
-     * @name GameGetChallenge
-     * @summary Get challenge information
-     * @request GET:/api/game/{id}/challenges/{challengeId}
-     */
     mutateGameGetChallenge: (
       id: number,
       challengeId: number,
@@ -4980,14 +4628,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves challenges with traffic capturing enabled; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameGetChallengesWithTrafficCapturing
-     * @summary Get challenges with traffic capturing enabled
-     * @request GET:/api/game/games/{id}/captures
-     */
     useGameGetChallengesWithTrafficCapturing: (
       id: number,
       options?: SWRConfiguration,
@@ -4998,14 +4638,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves challenges with traffic capturing enabled; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameGetChallengesWithTrafficCapturing
-     * @summary Get challenges with traffic capturing enabled
-     * @request GET:/api/game/games/{id}/captures
-     */
     mutateGameGetChallengesWithTrafficCapturing: (
       id: number,
       data?: ChallengeTrafficModel[] | Promise<ChallengeTrafficModel[]>,
@@ -5035,14 +4667,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves the list of captured teams for a game challenge; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameGetChallengeTraffic
-     * @summary Get team captures in a challenge
-     * @request GET:/api/game/captures/{challengeId}
-     */
     useGameGetChallengeTraffic: (
       challengeId: number,
       options?: SWRConfiguration,
@@ -5053,14 +4677,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves the list of captured teams for a game challenge; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameGetChallengeTraffic
-     * @summary Get team captures in a challenge
-     * @request GET:/api/game/captures/{challengeId}
-     */
     mutateGameGetChallengeTraffic: (
       challengeId: number,
       data?: TeamTrafficModel[] | Promise<TeamTrafficModel[]>,
@@ -5087,14 +4703,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * No description
-     *
-     * @tags Game
-     * @name GameGetGameJoinCheckInfo
-     * @summary Get check info for joining a game
-     * @request GET:/api/game/{id}/check
-     */
     useGameGetGameJoinCheckInfo: (
       id: number,
       options?: SWRConfiguration,
@@ -5105,14 +4713,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * No description
-     *
-     * @tags Game
-     * @name GameGetGameJoinCheckInfo
-     * @summary Get check info for joining a game
-     * @request GET:/api/game/{id}/check
-     */
     mutateGameGetGameJoinCheckInfo: (
       id: number,
       data?: GameJoinCheckInfoModel | Promise<GameJoinCheckInfoModel>,
@@ -5158,14 +4758,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves traffic packet files for a team and challenge; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameGetTeamTrafficAll
-     * @summary Get traffic files
-     * @request GET:/api/game/captures/{challengeId}/{partId}
-     */
     useGameGetTeamTrafficAll: (
       challengeId: number,
       partId: number,
@@ -5177,14 +4769,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves traffic packet files for a team and challenge; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameGetTeamTrafficAll
-     * @summary Get traffic files
-     * @request GET:/api/game/captures/{challengeId}/{partId}
-     */
     mutateGameGetTeamTrafficAll: (
       challengeId: number,
       partId: number,
@@ -5212,14 +4796,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves post-game writeup submission information; requires User permission
-     *
-     * @tags Game
-     * @name GameGetWriteup
-     * @summary Get writeup information
-     * @request GET:/api/game/{id}/writeup
-     */
     useGameGetWriteup: (
       id: number,
       options?: SWRConfiguration,
@@ -5230,14 +4806,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves post-game writeup submission information; requires User permission
-     *
-     * @tags Game
-     * @name GameGetWriteup
-     * @summary Get writeup information
-     * @request GET:/api/game/{id}/writeup
-     */
     mutateGameGetWriteup: (
       id: number,
       data?: BasicWriteupInfoModel | Promise<BasicWriteupInfoModel>,
@@ -5316,14 +4884,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves game notice data
-     *
-     * @tags Game
-     * @name GameNotices
-     * @summary Get game notices
-     * @request GET:/api/game/{id}/notices
-     */
     useGameNotices: (
       id: number,
       query?: {
@@ -5350,14 +4910,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves game notice data
-     *
-     * @tags Game
-     * @name GameNotices
-     * @summary Get game notices
-     * @request GET:/api/game/{id}/notices
-     */
     mutateGameNotices: (
       id: number,
       query?: {
@@ -5396,14 +4948,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves all participation information of the game; requires Admin permission
-     *
-     * @tags Game
-     * @name GameParticipations
-     * @summary Get all game participations
-     * @request GET:/api/game/{id}/participations
-     */
     useGameParticipations: (
       id: number,
       options?: SWRConfiguration,
@@ -5414,14 +4958,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves all participation information of the game; requires Admin permission
-     *
-     * @tags Game
-     * @name GameParticipations
-     * @summary Get all game participations
-     * @request GET:/api/game/{id}/participations
-     */
     mutateGameParticipations: (
       id: number,
       data?: ParticipationInfoModel[] | Promise<ParticipationInfoModel[]>,
@@ -5460,14 +4996,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves recent game in three weeks
-     *
-     * @tags Game
-     * @name GameRecentGames
-     * @summary Get the recent games
-     * @request GET:/api/game/recent
-     */
     useGameRecentGames: (
       query?: {
         /**
@@ -5486,14 +5014,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves recent game in three weeks
-     *
-     * @tags Game
-     * @name GameRecentGames
-     * @summary Get the recent games
-     * @request GET:/api/game/recent
-     */
     mutateGameRecentGames: (
       query?: {
         /**
@@ -5524,14 +5044,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves the scoreboard data
-     *
-     * @tags Game
-     * @name GameScoreboard
-     * @summary Get the scoreboard
-     * @request GET:/api/game/{id}/scoreboard
-     */
     useGameScoreboard: (
       id: number,
       options?: SWRConfiguration,
@@ -5542,14 +5054,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves the scoreboard data
-     *
-     * @tags Game
-     * @name GameScoreboard
-     * @summary Get the scoreboard
-     * @request GET:/api/game/{id}/scoreboard
-     */
     mutateGameScoreboard: (
       id: number,
       data?: ScoreboardModel | Promise<ScoreboardModel>,
@@ -5591,14 +5095,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Queries flag status; requires User permission
-     *
-     * @tags Game
-     * @name GameStatus
-     * @summary Queries flag status
-     * @request GET:/api/game/{id}/challenges/{challengeId}/status/{submitId}
-     */
     useGameStatus: (
       id: number,
       challengeId: number,
@@ -5613,14 +5109,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Queries flag status; requires User permission
-     *
-     * @tags Game
-     * @name GameStatus
-     * @summary Queries flag status
-     * @request GET:/api/game/{id}/challenges/{challengeId}/status/{submitId}
-     */
     mutateGameStatus: (
       id: number,
       challengeId: number,
@@ -5669,14 +5157,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Retrieves game submission data; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameSubmissions
-     * @summary Get game submissions
-     * @request GET:/api/game/{id}/submissions
-     */
     useGameSubmissions: (
       id: number,
       query?: {
@@ -5703,14 +5183,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Retrieves game submission data; requires Monitor permission
-     *
-     * @tags Game
-     * @name GameSubmissions
-     * @summary Get game submissions
-     * @request GET:/api/game/{id}/submissions
-     */
     mutateGameSubmissions: (
       id: number,
       query?: {
@@ -5816,14 +5288,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get Captcha configuration
-     *
-     * @tags Info
-     * @name InfoGetClientCaptchaInfo
-     * @summary Get Captcha configuration
-     * @request GET:/api/captcha
-     */
     useInfoGetClientCaptchaInfo: (
       options?: SWRConfiguration,
       doFetch: boolean = true,
@@ -5833,14 +5297,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Get Captcha configuration
-     *
-     * @tags Info
-     * @name InfoGetClientCaptchaInfo
-     * @summary Get Captcha configuration
-     * @request GET:/api/captcha
-     */
     mutateInfoGetClientCaptchaInfo: (
       data?: ClientCaptchaInfoModel | Promise<ClientCaptchaInfoModel>,
       options?: MutatorOptions,
@@ -5861,27 +5317,11 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get client configuration
-     *
-     * @tags Info
-     * @name InfoGetClientConfig
-     * @summary Get client configuration
-     * @request GET:/api/config
-     */
     useInfoGetClientConfig: (
       options?: SWRConfiguration,
       doFetch: boolean = true,
     ) => useSWR<ClientConfig, any>(doFetch ? `/api/config` : null, options),
 
-    /**
-     * @description Get client configuration
-     *
-     * @tags Info
-     * @name InfoGetClientConfig
-     * @summary Get client configuration
-     * @request GET:/api/config
-     */
     mutateInfoGetClientConfig: (
       data?: ClientConfig | Promise<ClientConfig>,
       options?: MutatorOptions,
@@ -5902,14 +5342,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get the latest posts
-     *
-     * @tags Info
-     * @name InfoGetLatestPosts
-     * @summary Get the latest posts
-     * @request GET:/api/posts/latest
-     */
     useInfoGetLatestPosts: (
       options?: SWRConfiguration,
       doFetch: boolean = true,
@@ -5919,14 +5351,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Get the latest posts
-     *
-     * @tags Info
-     * @name InfoGetLatestPosts
-     * @summary Get the latest posts
-     * @request GET:/api/posts/latest
-     */
     mutateInfoGetLatestPosts: (
       data?: PostInfoModel[] | Promise<PostInfoModel[]>,
       options?: MutatorOptions,
@@ -5947,14 +5371,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get post details
-     *
-     * @tags Info
-     * @name InfoGetPost
-     * @summary Get post details
-     * @request GET:/api/posts/{id}
-     */
     useInfoGetPost: (
       id: string,
       options?: SWRConfiguration,
@@ -5965,14 +5381,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Get post details
-     *
-     * @tags Info
-     * @name InfoGetPost
-     * @summary Get post details
-     * @request GET:/api/posts/{id}
-     */
     mutateInfoGetPost: (
       id: string,
       data?: PostDetailModel | Promise<PostDetailModel>,
@@ -5994,25 +5402,9 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get all posts
-     *
-     * @tags Info
-     * @name InfoGetPosts
-     * @summary Get all posts
-     * @request GET:/api/posts
-     */
     useInfoGetPosts: (options?: SWRConfiguration, doFetch: boolean = true) =>
       useSWR<PostInfoModel[], any>(doFetch ? `/api/posts` : null, options),
 
-    /**
-     * @description Get all posts
-     *
-     * @tags Info
-     * @name InfoGetPosts
-     * @summary Get all posts
-     * @request GET:/api/posts
-     */
     mutateInfoGetPosts: (
       data?: PostInfoModel[] | Promise<PostInfoModel[]>,
       options?: MutatorOptions,
@@ -6033,14 +5425,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Create Pow Captcha, valid for 5 minutes
-     *
-     * @tags Info
-     * @name InfoPowChallenge
-     * @summary Create Pow Captcha
-     * @request GET:/api/captcha/powchallenge
-     */
     useInfoPowChallenge: (
       options?: SWRConfiguration,
       doFetch: boolean = true,
@@ -6050,14 +5434,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Create Pow Captcha, valid for 5 minutes
-     *
-     * @tags Info
-     * @name InfoPowChallenge
-     * @summary Create Pow Captcha
-     * @request GET:/api/captcha/powchallenge
-     */
     mutateInfoPowChallenge: (
       data?: HashPowChallenge | Promise<HashPowChallenge>,
       options?: MutatorOptions,
@@ -6186,14 +5562,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get basic information of a team by ID
-     *
-     * @tags Team
-     * @name TeamGetBasicInfo
-     * @summary Get team information
-     * @request GET:/api/team/{id}
-     */
     useTeamGetBasicInfo: (
       id: number,
       options?: SWRConfiguration,
@@ -6204,14 +5572,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Get basic information of a team by ID
-     *
-     * @tags Team
-     * @name TeamGetBasicInfo
-     * @summary Get team information
-     * @request GET:/api/team/{id}
-     */
     mutateTeamGetBasicInfo: (
       id: number,
       data?: TeamInfoModel | Promise<TeamInfoModel>,
@@ -6233,14 +5593,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get basic information of a team based on user
-     *
-     * @tags Team
-     * @name TeamGetTeamsInfo
-     * @summary Get current team information
-     * @request GET:/api/team
-     */
     useTeamGetTeamsInfo: (
       options?: SWRConfiguration,
       doFetch: boolean = true,
@@ -6250,14 +5602,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Get basic information of a team based on user
-     *
-     * @tags Team
-     * @name TeamGetTeamsInfo
-     * @summary Get current team information
-     * @request GET:/api/team
-     */
     mutateTeamGetTeamsInfo: (
       data?: TeamInfoModel[] | Promise<TeamInfoModel[]>,
       options?: MutatorOptions,
@@ -6278,14 +5622,6 @@ export class Api<
         format: "json",
         ...params,
       }),
-    /**
-     * @description Get team invitation information, must be team creator
-     *
-     * @tags Team
-     * @name TeamInviteCode
-     * @summary Get invitation information
-     * @request GET:/api/team/{id}/invite
-     */
     useTeamInviteCode: (
       id: number,
       options?: SWRConfiguration,
@@ -6296,14 +5632,6 @@ export class Api<
         options,
       ),
 
-    /**
-     * @description Get team invitation information, must be team creator
-     *
-     * @tags Team
-     * @name TeamInviteCode
-     * @summary Get invitation information
-     * @request GET:/api/team/{id}/invite
-     */
     mutateTeamInviteCode: (
       id: number,
       data?: string | Promise<string>,
@@ -6430,11 +5758,11 @@ export const fetcher = async (
   args: string | [string, Record<string, unknown>],
 ) => {
   if (typeof args === "string") {
-    const response = await api.request({ path: args });
+    const response = await api.request({ path: args, format: "json" });
     return response.data;
   } else {
     const [path, query] = args;
-    const response = await api.request({ path, query });
+    const response = await api.request({ path, query, format: "json" });
     return response.data;
   }
 };
