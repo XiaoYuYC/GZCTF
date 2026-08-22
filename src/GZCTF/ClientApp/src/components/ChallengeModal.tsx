@@ -39,7 +39,6 @@ const ChallengeDeadlineNotice: FC<ChallengeDeadlineNoticeProps> = ({ deadline, o
   const { locale } = useLanguage()
 
   useEffect(() => {
-    setNow(dayjs())
     const timer = setInterval(() => setNow(dayjs()), 1000)
     return () => clearInterval(timer)
   }, [deadline])
@@ -121,15 +120,19 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
 
   const [placeholder, setPlaceholder] = useState('')
   useEffect(() => {
+    // oxlint-disable-next-line set-state-in-effect -- random placeholder selected per challenge
     setPlaceholder(placeholders[Math.floor(Math.random() * placeholders.length)])
   }, [challenge])
 
-  const deadlineTime = useMemo(() => (challenge?.deadline ? dayjs(challenge.deadline) : null), [challenge?.deadline])
+  const challengeDeadline = challenge?.deadline
+  const deadlineTime = useMemo(() => (challengeDeadline ? dayjs(challengeDeadline) : null), [challenge?.deadline])
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(() => (deadlineTime ? dayjs().isAfter(deadlineTime) : false))
 
-  useEffect(() => {
+  const [prevDeadlineTime, setPrevDeadlineTime] = useState(deadlineTime)
+  if (prevDeadlineTime !== deadlineTime) {
+    setPrevDeadlineTime(deadlineTime)
     setIsDeadlinePassed(deadlineTime ? dayjs().isAfter(deadlineTime) : false)
-  }, [deadlineTime])
+  }
 
   const isLimitReached = (challenge?.limit && (challenge.attempts ?? 0) >= challenge.limit) || false
 
@@ -226,22 +229,25 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
   )
 
   const attemptsInfo = useMemo(() => {
-    if (typeof challenge?.attempts !== 'number' || solved) return null
+    const attempts = challenge?.attempts
+    const limit = challenge?.limit
+
+    if (typeof attempts !== 'number' || solved) return null
 
     let content = null
     if (deadlineTime && isDeadlinePassed) {
       content = t('challenge.content.deadline.expired', {
         deadline: deadlineTime.locale(locale).format('L LTS'),
       })
-    } else if (challenge?.limit) {
-      const remaining = challenge.limit - challenge.attempts
+    } else if (limit) {
+      const remaining = limit - attempts
       if (remaining > 0) {
         content = t('challenge.content.attempts.remaining', { remaining })
       } else {
         content = t('challenge.content.attempts.exhausted')
       }
     } else {
-      content = t('challenge.content.attempts.count', { count: challenge.attempts })
+      content = t('challenge.content.attempts.count', { count: attempts })
     }
 
     return <Input.Label>{content}</Input.Label>

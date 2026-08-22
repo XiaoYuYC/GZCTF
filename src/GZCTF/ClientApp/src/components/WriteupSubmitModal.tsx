@@ -19,7 +19,7 @@ import { mdiCheck, mdiExclamationThick, mdiFileDocumentOutline, mdiFileHidden } 
 import { Icon } from '@mdi/react'
 import cx from 'clsx'
 import dayjs from 'dayjs'
-import { FC, useEffect, useState } from 'react'
+import { FC, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Markdown } from '@Components/MarkdownRenderer'
 import { useLanguage } from '@Utils/I18n'
@@ -47,10 +47,12 @@ export const WriteupSubmitModal: FC<WriteupSubmitModalProps> = ({ gameId, writeu
 
   const { t } = useTranslation()
 
-  useEffect(() => {
+  const [prevDeadline, setPrevDeadline] = useState(wpddl)
+  if (prevDeadline !== wpddl) {
+    setPrevDeadline(wpddl)
     setDdl(dayjs(wpddl))
     setDisabled(dayjs().isAfter(wpddl))
-  }, [wpddl])
+  }
 
   const onUpload = async (file: File | null) => {
     if (!file || disabled) return

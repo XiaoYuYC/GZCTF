@@ -70,9 +70,12 @@ const GameInfoEdit: FC = () => {
         icon: <Icon path={mdiClose} size={1} />,
       })
       navigate('/admin/games')
-      return
     }
+  }, [numId, navigate, t])
 
+  const [prevSource, setPrevSource] = useState(gameSource)
+  if (prevSource !== gameSource) {
+    setPrevSource(gameSource)
     if (gameSource) {
       setGame(gameSource)
       setStart(dayjs(gameSource.start))
@@ -81,7 +84,7 @@ const GameInfoEdit: FC = () => {
       const wpddl = dayjs(gameSource.writeupDeadline).diff(gameSource.end, 'h')
       setWpddl(wpddl < 0 ? 0 : wpddl)
     }
-  }, [id, gameSource])
+  }
 
   const onUpdatePoster = async (file: File | undefined) => {
     if (!game || !file) return

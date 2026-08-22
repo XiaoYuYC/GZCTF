@@ -60,6 +60,35 @@ const PostEdit: FC = () => {
   const [disabled, setDisabled] = useState(false)
   const [hasChanged, setHasChanged] = useState(false)
 
+  const [prevCurPost, setPrevCurPost] = useState(curPost)
+  if (prevCurPost !== curPost) {
+    setPrevCurPost(curPost)
+    if (curPost) {
+      setPost({
+        title: curPost.title,
+        content: curPost.content,
+        summary: curPost.summary,
+        isPinned: curPost.isPinned,
+        tags: curPost.tags ?? [],
+      })
+      setTags(curPost.tags ?? [])
+    }
+  }
+
+  const [prevPostState, setPrevPostState] = useState({ post, curPost })
+  if (prevPostState.post !== post || prevPostState.curPost !== curPost) {
+    setPrevPostState({ post, curPost })
+    if (curPost) {
+      setHasChanged(
+        post.title !== curPost.title ||
+          post.content !== curPost.content ||
+          post.summary !== curPost.summary ||
+          post.isPinned !== curPost.isPinned ||
+          (post.tags?.some((tag) => !curPost?.tags?.includes(tag)) ?? false)
+      )
+    }
+  }
+
   const modals = useModals()
 
   const isMobile = useIsMobile()
@@ -126,30 +155,6 @@ const PostEdit: FC = () => {
       setDisabled(false)
     }
   }
-
-  useEffect(() => {
-    if (!curPost) return
-
-    setPost({
-      title: curPost.title,
-      content: curPost.content,
-      summary: curPost.summary,
-      isPinned: curPost.isPinned,
-      tags: curPost.tags ?? [],
-    })
-    setTags(curPost.tags ?? [])
-  }, [curPost])
-
-  useEffect(() => {
-    if (!curPost) return
-    setHasChanged(
-      post.title !== curPost.title ||
-        post.content !== curPost.content ||
-        post.summary !== curPost.summary ||
-        post.isPinned !== curPost.isPinned ||
-        (post.tags?.some((tag) => !curPost?.tags?.includes(tag)) ?? false)
-    )
-  }, [post, curPost])
 
   const titlePart = (
     <>

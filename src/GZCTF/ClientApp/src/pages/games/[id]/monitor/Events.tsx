@@ -140,9 +140,14 @@ const Events: FC = () => {
 
   const [activePage, setPage] = useState(1)
 
-  const [, update] = useState(new Date())
-  const newEvents = useRef<GameEvent[]>([])
+  const [newEvents, setNewEvents] = useState<GameEvent[]>([])
   const [events, setEvents] = useState<GameEvent[]>()
+
+  const [filterKey, setFilterKey] = useState(`${activePage}:${hideContainerEvents}`)
+  if (filterKey !== `${activePage}:${hideContainerEvents}`) {
+    setFilterKey(`${activePage}:${hideContainerEvents}`)
+    setNewEvents([])
+  }
 
   const { game } = useGame(numId)
 
@@ -175,10 +180,6 @@ const Events: FC = () => {
     }
 
     fetchEvents()
-
-    if (activePage === 1) {
-      newEvents.current = []
-    }
   }, [activePage, hideContainerEvents, numId, t])
 
   useEffect(() => {
@@ -194,8 +195,7 @@ const Events: FC = () => {
 
       connection.on('ReceivedGameEvent', (message: GameEvent) => {
         console.log(message)
-        newEvents.current = [message, ...newEvents.current]
-        update(new Date(message.time!))
+        setNewEvents((prev) => [message, ...prev])
       })
 
       const startConnection = async () => {
@@ -221,7 +221,7 @@ const Events: FC = () => {
     }
   }, [game, numId, t])
 
-  const filteredEvents = newEvents.current.filter(
+  const filteredEvents = newEvents.filter(
     (e) => !hideContainerEvents || (e.type !== EventType.ContainerStart && e.type !== EventType.ContainerDestroy)
   )
 

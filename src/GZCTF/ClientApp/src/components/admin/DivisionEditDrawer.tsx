@@ -15,7 +15,7 @@ import {
 import { showNotification } from '@mantine/notifications'
 import { mdiCheck, mdiClose, mdiDiceMultiple, mdiMinusCircle } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollingText } from '@Components/ScrollingText'
 import { PermissionDot, PermissionSelector } from '@Components/admin/PermissionSelector'
@@ -116,12 +116,14 @@ export const DivisionEditDrawer: FC<DivisionEditDrawerProps> = ({
     setChallengePermissions(overrides)
   }
 
-  useEffect(() => {
+  const [prevOpenState, setPrevOpenState] = useState({ opened, division })
+  if (prevOpenState.opened !== opened || prevOpenState.division !== division) {
+    setPrevOpenState({ opened, division })
     if (opened) {
       resetForm()
       setLoading(false)
     }
-  }, [division, opened])
+  }
 
   const handleChallengeSelection = (values: string[]) => {
     setSelectedChallenges(values)

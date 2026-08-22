@@ -4,7 +4,7 @@ import { Icon } from '@mdi/react'
 import * as signalR from '@microsoft/signalr'
 import dayjs from 'dayjs'
 import { TFunction } from 'i18next'
-import { FC, useEffect, useRef, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { Empty } from '@Components/Empty'
@@ -84,8 +84,7 @@ export const GameNoticePanel: FC = () => {
   const { id } = useParams()
   const numId = parseInt(id ?? '-1')
 
-  const [, update] = useState(new Date())
-  const newNotices = useRef<GameNotice[]>([])
+  const [newNotices, setNewNotices] = useState<GameNotice[]>([])
   const [filter, setFilter] = useState<NoticeFilter>(NoticeFilter.All)
   const iconMap = NoticTypeIconMap(0.8)
 
@@ -95,9 +94,11 @@ export const GameNoticePanel: FC = () => {
 
   const { data: notices } = api.game.useGameNotices(numId, {}, OnceSWRConfig)
 
-  useEffect(() => {
-    newNotices.current = []
-  }, [notices])
+  const [prevNotices, setPrevNotices] = useState(notices)
+  if (prevNotices !== notices) {
+    setPrevNotices(notices)
+    setNewNotices([])
+  }
 
   useEffect(() => {
     if (id) {
@@ -111,7 +112,7 @@ export const GameNoticePanel: FC = () => {
       connection.serverTimeoutInMilliseconds = 60 * 1000 * 60 * 2
 
       connection.on('ReceivedGameNotice', (message: GameNotice) => {
-        newNotices.current = [message, ...newNotices.current]
+        setNewNotices((prev) => [message, ...prev])
 
         if (message.type === NoticeType.NewChallenge || message.type === NoticeType.NewHint) {
           showNotification({
@@ -128,8 +129,6 @@ export const GameNoticePanel: FC = () => {
             autoClose: 5000,
           })
         }
-
-        update(new Date(message.time))
       })
 
       connection.start().catch((error) => {
@@ -144,7 +143,7 @@ export const GameNoticePanel: FC = () => {
     }
   })
 
-  const allNotices = [...newNotices.current, ...(notices ?? [])]
+  const allNotices = [...newNotices, ...(notices ?? [])]
   const filteredNotices = ApplyFilter(allNotices, filter)
 
   filteredNotices.sort((a, b) =>

@@ -20,7 +20,7 @@ import { showNotification } from '@mantine/notifications'
 import { mdiCheck, mdiKeyAlert, mdiTarget } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
-import { FC, useEffect, useState } from 'react'
+import { FC, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { WithGameMonitor } from '@Components/WithGameMonitor'
@@ -375,11 +375,13 @@ const CheatInfo: FC = () => {
 
   const { t } = useTranslation()
 
-  useEffect(() => {
-    if (!cheatInfo) return
-
-    setCheatTeamInfo(ToCheatTeamInfo(cheatInfo))
-  }, [cheatInfo])
+  const [prevCheatInfo, setPrevCheatInfo] = useState(cheatInfo)
+  if (prevCheatInfo !== cheatInfo) {
+    setPrevCheatInfo(cheatInfo)
+    if (cheatInfo) {
+      setCheatTeamInfo(ToCheatTeamInfo(cheatInfo))
+    }
+  }
 
   const setParticipation = async (id: number, model: ParticipationEditModel) => {
     setDisabled(true)

@@ -21,11 +21,14 @@ export const CustomColorModal: FC<ModalProps> = (props) => {
 
   const colors = color.provider === ColorProvider.Custom && valid ? generateColors(color.color) : theme.colors.brand
 
-  useEffect(() => {
+  const [prevCustomColor, setPrevCustomColor] = useState(customColor)
+  if (prevCustomColor !== customColor) {
+    setPrevCustomColor(customColor)
     setColor(customColor)
-  }, [customColor])
+  }
 
   useEffect(() => {
+    // oxlint-disable-next-line set-state-in-effect -- commit debounced color to global color provider
     setCustomColor(debouncedColor)
   }, [debouncedColor])
 

@@ -120,9 +120,11 @@ export const TeamEditModal: FC<TeamEditModalProps> = (props) => {
 
   const { t } = useTranslation()
 
-  useEffect(() => {
+  const [prevTeam, setPrevTeam] = useState(team)
+  if (prevTeam !== team) {
+    setPrevTeam(team)
     setTeamInfo(team)
-  }, [team])
+  }
 
   useEffect(() => {
     const fetchCode = async () => {

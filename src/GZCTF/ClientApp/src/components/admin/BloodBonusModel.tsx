@@ -1,5 +1,5 @@
 import { Button, Group, Modal, ModalProps, NumberInput, Stack, Text } from '@mantine/core'
-import { FC, useEffect, useState } from 'react'
+import { FC, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { BloodBonus } from '@Utils/Shared'
@@ -25,14 +25,16 @@ export const BloodBonusModel: FC<ModalProps> = (props) => {
 
   const { t } = useTranslation()
 
-  useEffect(() => {
+  const [prevSource, setPrevSource] = useState(gameSource)
+  if (prevSource !== gameSource) {
+    setPrevSource(gameSource)
     if (gameSource) {
       const bonus = new BloodBonus(gameSource.bloodBonus)
       setFirstBloodBonus(bonus.getBonusNum(SubmissionType.FirstBlood))
       setSecondBloodBonus(bonus.getBonusNum(SubmissionType.SecondBlood))
       setThirdBloodBonus(bonus.getBonusNum(SubmissionType.ThirdBlood))
     }
-  }, [gameSource])
+  }
 
   const onUpdate = async () => {
     if (!gameSource?.title) return

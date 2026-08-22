@@ -150,7 +150,7 @@ export const LanguageProvider = ({ children }: PropsWithChildren) => {
           ),
           confirmProps: { color: undefined },
           labels: { confirm: 'Confirm', cancel: 'Switch to English' },
-          onCancel: () => setLanguage('en-US'),
+          onCancel: () => setLanguageInner('en-US'),
         })
       } else {
         console.warn(`Language ${lang} is not supported, fallback to ${defaultLanguage}`)

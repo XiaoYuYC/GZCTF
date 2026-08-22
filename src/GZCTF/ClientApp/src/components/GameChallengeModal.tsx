@@ -173,38 +173,6 @@ export const GameChallengeModal: FC<GameChallengeModalProps> = (props) => {
     }
   }
 
-  useEffect(() => {
-    if (!submitId) return
-
-    const polling = setInterval(async () => {
-      try {
-        const res = await api.game.gameStatus(gameId, challengeId, submitId)
-        if (res.data !== AnswerResult.FlagSubmitted) {
-          setDisabled(false)
-          setFlag('')
-          checkDataFlag(submitId, res.data)
-          clearInterval(polling)
-        }
-      } catch (err) {
-        setDisabled(false)
-        setFlag('')
-        showErrorMsg(err, t)
-        clearInterval(polling)
-      }
-    }, 500)
-
-    return () => clearInterval(polling)
-  }, [submitId])
-
-  useEffect(() => {
-    if (challengeId !== solvedChallengeId) return
-
-    if (status !== SubmissionType.Unaccepted && status !== undefined) {
-      // status has been updated, reset solved challenge id
-      setSolvedChallengeId(null)
-    }
-  }, [status, challengeId, challenge])
-
   const checkDataFlag = async (id: number, data: string) => {
     if (data === AnswerResult.Accepted) {
       setSolvedChallengeId(challengeId)
@@ -243,6 +211,37 @@ export const GameChallengeModal: FC<GameChallengeModalProps> = (props) => {
         autoClose: false,
         withCloseButton: true,
       })
+    }
+  }
+
+  useEffect(() => {
+    if (!submitId) return
+
+    const polling = setInterval(async () => {
+      try {
+        const res = await api.game.gameStatus(gameId, challengeId, submitId)
+        if (res.data !== AnswerResult.FlagSubmitted) {
+          setDisabled(false)
+          setFlag('')
+          checkDataFlag(submitId, res.data)
+          clearInterval(polling)
+        }
+      } catch (err) {
+        setDisabled(false)
+        setFlag('')
+        showErrorMsg(err, t)
+        clearInterval(polling)
+      }
+    }, 500)
+
+    return () => clearInterval(polling)
+  }, [submitId])
+
+  const [prevStatus, setPrevStatus] = useState(status)
+  if (prevStatus !== status) {
+    setPrevStatus(status)
+    if (challengeId === solvedChallengeId && status !== SubmissionType.Unaccepted && status !== undefined) {
+      setSolvedChallengeId(null)
     }
   }
 

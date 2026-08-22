@@ -20,7 +20,7 @@ import { showNotification } from '@mantine/notifications'
 import { mdiCheck, mdiContentSaveOutline, mdiDatabaseEditOutline, mdiDeleteOutline, mdiEyeOutline } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
-import { FC, useEffect, useState } from 'react'
+import { FC, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router'
 import { HintList } from '@Components/HintList'
@@ -39,7 +39,7 @@ import {
 } from '@Utils/Shared'
 import { useEditChallenge, useEditChallenges } from '@Hooks/useEdit'
 import { useGame } from '@Hooks/useGame'
-import api, { ChallengeCategory, ChallengeType, ChallengeUpdateModel, NetworkMode } from '@Api'
+import api, { ChallengeCategory, ChallengeInfoModel, ChallengeType, ChallengeUpdateModel, NetworkMode } from '@Api'
 import misc from '@Styles/Misc.module.css'
 
 const GameChallengeEdit: FC = () => {
@@ -72,7 +72,38 @@ const GameChallengeEdit: FC = () => {
 
   const { t } = useTranslation()
 
-  useEffect(() => {
+  const currentListItem = challenges?.find((c) => c.id === numCId)
+
+  const syncFormFromList = (item: ChallengeInfoModel) => {
+    const minScore = item.minScore
+    const originalScore = item.originalScore
+    setChallengeInfo({
+      title: item.title,
+      category: item.category,
+      deadlineUtc: item.deadlineUtc,
+    })
+    setCategory(item.category ?? ChallengeCategory.Misc)
+    setType(item.type ?? ChallengeType.StaticAttachment)
+    setMinRate(minScore && originalScore ? (minScore / originalScore) * 100 : 25)
+    setCurrentAcceptCount(0)
+    setDeadline(item.deadlineUtc ? dayjs(item.deadlineUtc) : null)
+    setNetworkMode(NetworkMode.Open)
+  }
+
+  const [prevSyncKey, setPrevSyncKey] = useState<{ id: number; list: ChallengeInfoModel[] | null }>({
+    id: numCId,
+    list: challenges ?? null,
+  })
+  if (prevSyncKey.id !== numCId || prevSyncKey.list !== (challenges ?? null)) {
+    setPrevSyncKey({ id: numCId, list: challenges ?? null })
+    if (currentListItem) {
+      syncFormFromList(currentListItem)
+    }
+  }
+
+  const [prevChallenge, setPrevChallenge] = useState(challenge)
+  if (prevChallenge !== challenge) {
+    setPrevChallenge(challenge)
     if (challenge) {
       setChallengeInfo({ ...challenge })
       setCategory(challenge.category)
@@ -82,7 +113,7 @@ const GameChallengeEdit: FC = () => {
       setDeadline(challenge.deadlineUtc ? dayjs(challenge.deadlineUtc) : null)
       setNetworkMode(challenge.networkMode ?? NetworkMode.Open)
     }
-  }, [challenge])
+  }
 
   const onUpdate = async (challenge: ChallengeUpdateModel, noFeedback?: boolean) => {
     if (!challenge) return

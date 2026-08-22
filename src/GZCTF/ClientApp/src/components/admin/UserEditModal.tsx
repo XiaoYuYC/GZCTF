@@ -17,7 +17,7 @@ import { showNotification } from '@mantine/notifications'
 import { mdiCheck } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
-import { FC, useEffect, useState } from 'react'
+import { FC, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { showErrorMsg } from '@Utils/Shared'
 import { useUser } from '@Hooks/useUser'
@@ -45,9 +45,11 @@ export const UserEditModal: FC<UserEditModalProps> = (props) => {
   const { t } = useTranslation()
   const isSelf = self?.userId === user.id
 
-  useEffect(() => {
+  const [prevUser, setPrevUser] = useState(user)
+  if (prevUser !== user) {
+    setPrevUser(user)
     setProfile({ ...user })
-  }, [user])
+  }
 
   const onChangeProfile = async () => {
     if (!user.id) return

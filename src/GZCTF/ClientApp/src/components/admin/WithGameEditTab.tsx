@@ -50,11 +50,13 @@ export const WithGameEditTab: FC<GameEditTabProps> = ({
 
   const [activeTab, setActiveTab] = useState(getTab(location.pathname)?.path ?? pages[0].path)
 
+  const matchedTab = getTab(location.pathname)
+  if (matchedTab && matchedTab.path !== activeTab) {
+    setActiveTab(matchedTab.path)
+  }
+
   useEffect(() => {
-    const tab = getTab(location.pathname)
-    if (tab) {
-      setActiveTab(tab.path ?? '')
-    } else {
+    if (!getTab(location.pathname)) {
       navigate(pages[0].path)
     }
   }, [location])

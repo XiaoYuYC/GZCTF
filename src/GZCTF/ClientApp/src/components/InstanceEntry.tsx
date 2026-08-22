@@ -14,7 +14,7 @@ import { Icon } from '@mdi/react'
 import { WsrxState } from '@xdsec/wsrx'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HandleWsrxError, useWsrx } from '@Components/WsrxProvider'
 import { getProxyUrl as getProxyEntry } from '@Utils/Shared'
@@ -46,7 +46,7 @@ const Countdown: FC<CountdownProps> = (props) => {
   const { time, onTimeout, extendEnabled, enableExtend } = props
   const { config } = useConfig()
   const [now, setNow] = useState(dayjs())
-  const [timeoutExecuted, setTimeoutExecuted] = useState(false)
+  const timeoutExecuted = useRef(false)
   const end = time ? dayjs(time) : now.add(config.defaultLifetime ?? 120, 'minutes')
 
   const countdown = dayjs.duration(end.diff(now))
@@ -61,15 +61,15 @@ const Countdown: FC<CountdownProps> = (props) => {
     if (!extendEnabled && config.renewalWindow && countdown.asMinutes() < config.renewalWindow) enableExtend()
 
     const isExpired = countdown.asSeconds() <= 0
-    if (isExpired && !timeoutExecuted && onTimeout) {
-      setTimeoutExecuted(true)
+    if (isExpired && !timeoutExecuted.current && onTimeout) {
+      timeoutExecuted.current = true
       onTimeout()
     }
 
-    if (!isExpired && timeoutExecuted) {
-      setTimeoutExecuted(false)
+    if (!isExpired && timeoutExecuted.current) {
+      timeoutExecuted.current = false
     }
-  }, [countdown, config.renewalWindow, timeoutExecuted, onTimeout])
+  }, [countdown, config.renewalWindow, onTimeout])
 
   return (
     <Text span fw="bold">
@@ -109,11 +109,13 @@ export const InstanceEntry: FC<InstanceEntryProps> = (props) => {
     setCanExtend(true)
   }, 100)
 
-  useEffect(() => {
+  const [prevContext, setPrevContext] = useState(context)
+  if (prevContext !== context) {
+    setPrevContext(context)
     setWithContainer(!!context.instanceEntry)
     const countdown = dayjs.duration(dayjs(context.closeTime ?? 0).diff(dayjs()))
     setCanExtend(countdown.asMinutes() < (config.renewalWindow ?? 10))
-  }, [context, config.renewalWindow])
+  }
 
   const onExtend = () => {
     if (!canExtend || !props.onExtend) return

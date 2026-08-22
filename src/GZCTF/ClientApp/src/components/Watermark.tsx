@@ -106,9 +106,9 @@ export const Watermark: React.FC<React.PropsWithChildren<WatermarkProps>> = ({
   rotate = -45,
   children,
 }) => {
-  const [backgroundImage, setBackgroundImage] = useState<string>('')
+  const [zIndex] = useState(() => Math.floor(Math.random() * 10000) + 50000)
 
-  useEffect(() => {
+  const backgroundImage = useMemo(() => {
     const svg = generateSvg({
       text,
       textColor,
@@ -120,8 +120,8 @@ export const Watermark: React.FC<React.PropsWithChildren<WatermarkProps>> = ({
       multiline,
       lineHeight,
     })
-    setBackgroundImage(`url("data:image/svg+xml;base64,${window.btoa(svg)}")`)
-  }, [show, text, textColor, textSize, opacity, gutter, rotate])
+    return `url("data:image/svg+xml;base64,${window.btoa(svg)}")`
+  }, [text, textColor, textSize, fontFamily, opacity, gutter, rotate, multiline, lineHeight])
 
   const Wrapper = wrapperElement
 
@@ -144,67 +144,66 @@ export const Watermark: React.FC<React.PropsWithChildren<WatermarkProps>> = ({
       top: '0 !important',
       left: '0 !important',
       pointerEvents: 'none',
-      zIndex: `${Math.floor(Math.random() * 10000) + 50000} !important`,
+      zIndex: `${zIndex} !important`,
       backgroundImage,
     }),
-    [backgroundImage]
+    [backgroundImage, zIndex]
   )
 
-  const MutationObserver = window.MutationObserver
   const kebabCase = (str: string) => str.replace(new RegExp(/[A-Z]/g), (v) => `-${v.toLowerCase()}`)
 
-  const watermarkCSS = Object.entries(watermarkStyle)
-    .map(([key, value]) => `${kebabCase(key)}:${value}`)
-    .join(';')
+  const watermarkCSS = useMemo(
+    () =>
+      Object.entries(watermarkStyle)
+        .map(([key, value]) => `${kebabCase(key)}:${value}`)
+        .join(';'),
+    [watermarkStyle]
+  )
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const watermarkRef = useRef<HTMLDivElement>(null)
-
-  const watermarkBox: (layers: number, child: HTMLDivElement) => HTMLDivElement = (layers, child) => {
-    if (layers > 0) {
-      const box = document.createElement('div')
-      box.appendChild(child)
-      return watermarkBox(layers - 1, box)
-    } else {
-      return child
-    }
-  }
-
-  const updateWatermark = () => {
-    const wrapper = wrapperRef.current
-    if (!wrapper) return
-
-    const watermark = watermarkRef.current
-
-    if (!watermark || !wrapper.contains(watermark)) {
-      const div = document.createElement('div')
-      div.setAttribute('style', watermarkCSS)
-      watermarkRef.current = div
-      wrapper.appendChild(watermarkBox(Math.ceil(Math.random() * 8), div))
-    } else if (watermark.getAttribute('style') !== watermarkCSS) {
-      watermark.setAttribute('style', watermarkCSS)
-    }
-  }
-
-  const observer = new MutationObserver(updateWatermark)
 
   // add listener to wrapper element
   useEffect(() => {
     if (!show) return
 
-    updateWatermark()
     const wrapper = wrapperRef.current
+    if (!wrapper) return
 
-    if (wrapper) {
-      observer.observe(wrapper, {
-        childList: true,
-        attributes: true,
-        subtree: true,
-      })
+    const watermarkBox: (layers: number, child: HTMLDivElement) => HTMLDivElement = (layers, child) => {
+      if (layers > 0) {
+        const box = document.createElement('div')
+        box.appendChild(child)
+        return watermarkBox(layers - 1, box)
+      } else {
+        return child
+      }
     }
 
+    const updateWatermark = () => {
+      const watermark = watermarkRef.current
+
+      if (!watermark || !wrapper.contains(watermark)) {
+        const div = document.createElement('div')
+        div.setAttribute('style', watermarkCSS)
+        watermarkRef.current = div
+        wrapper.appendChild(watermarkBox(Math.ceil(Math.random() * 8), div))
+      } else if (watermark.getAttribute('style') !== watermarkCSS) {
+        watermark.setAttribute('style', watermarkCSS)
+      }
+    }
+
+    updateWatermark()
+
+    const observer = new MutationObserver(updateWatermark)
+    observer.observe(wrapper, {
+      childList: true,
+      attributes: true,
+      subtree: true,
+    })
+
     return () => observer.disconnect()
-  }, [show, backgroundImage])
+  }, [show, watermarkCSS])
 
   return (
     <Wrapper style={{ position: 'relative', ...wrapperStyle }} ref={wrapperRef}>

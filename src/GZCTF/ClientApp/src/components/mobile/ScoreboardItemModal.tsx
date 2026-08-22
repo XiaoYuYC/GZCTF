@@ -52,19 +52,19 @@ export const MobileScoreboardItemModal: FC<ScoreboardItemModalProps> = React.mem
   }, [challenges])
 
   const values = useMemo(() => {
-    if (!indicator || !item?.solvedChallenges) return []
+    const solvedChallenges = item?.solvedChallenges
+    if (!indicator || !solvedChallenges) return []
     return indicator.map((ind) => {
-      const solvedChallenges = item.solvedChallenges!.filter(
-        (chal) => challengeIdMap.get(chal.id!)?.category === ind.name
-      )
-      const cateScore = solvedChallenges.reduce((sum, chal) => sum + chal.score!, 0)
+      const cateChallenges = solvedChallenges.filter((chal) => challengeIdMap.get(chal.id!)?.category === ind.name)
+      const cateScore = cateChallenges.reduce((sum, chal) => sum + chal.score!, 0)
       return Math.min(cateScore / ind.scoreSum, 1)
     })
   }, [indicator, item?.solvedChallenges, challengeIdMap])
 
   const sortedSolvedChallenges = useMemo(() => {
-    if (!item?.solvedChallenges) return []
-    return item.solvedChallenges.sort((a, b) => dayjs(b.time).diff(dayjs(a.time)))
+    const solvedChallenges = item?.solvedChallenges
+    if (!solvedChallenges) return []
+    return solvedChallenges.sort((a, b) => dayjs(b.time).diff(dayjs(a.time)))
   }, [item?.solvedChallenges])
 
   return (

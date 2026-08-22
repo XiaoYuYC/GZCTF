@@ -226,6 +226,12 @@ const GameTeamReview: FC = () => {
   const { t } = useTranslation()
   const [activePage, setPage] = useState(1)
 
+  const [prevFilter, setPrevFilter] = useState(`${selectedStatus}:${selectedDivisionId}:${search}`)
+  if (prevFilter !== `${selectedStatus}:${selectedDivisionId}:${search}`) {
+    setPrevFilter(`${selectedStatus}:${selectedDivisionId}:${search}`)
+    setPage(1)
+  }
+
   const { data: divisions } = api.edit.useEditGetDivisions(numId, OnceSWRConfig, numId > 0)
 
   const divisionNameMap = useMemo(() => {
@@ -294,10 +300,6 @@ const GameTeamReview: FC = () => {
       setDisabled(false)
     }
   }
-
-  useEffect(() => {
-    setPage(1)
-  }, [selectedStatus, selectedDivisionId, search])
 
   useEffect(() => {
     if (numId < 0) {

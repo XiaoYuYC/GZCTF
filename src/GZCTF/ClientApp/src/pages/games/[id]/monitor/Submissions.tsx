@@ -70,11 +70,16 @@ const Submissions: FC = () => {
 
   const [activePage, setPage] = useState(1)
 
-  const [, update] = useState(new Date())
-  const newSubmissions = useRef<Submission[]>([])
+  const [newSubmissions, setNewSubmissions] = useState<Submission[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>()
   const [type, setType] = useState<AnswerResult | 'All'>('All')
   const [disabled, setDisabled] = useState(false)
+
+  const [filterKey, setFilterKey] = useState(`${activePage}:${type}`)
+  if (filterKey !== `${activePage}:${type}`) {
+    setFilterKey(`${activePage}:${type}`)
+    setNewSubmissions([])
+  }
 
   const { game } = useGame(numId)
 
@@ -110,10 +115,6 @@ const Submissions: FC = () => {
     }
 
     fetchSubmissions()
-
-    if (activePage === 1) {
-      newSubmissions.current = []
-    }
   }, [activePage, type, numId, t])
 
   useEffect(() => {
@@ -129,8 +130,7 @@ const Submissions: FC = () => {
 
       connection.on('ReceivedSubmissions', (message: Submission) => {
         console.log(message)
-        newSubmissions.current = [message, ...newSubmissions.current]
-        update(new Date(message.time!))
+        setNewSubmissions((prev) => [message, ...prev])
       })
 
       const startConnection = async () => {
@@ -156,7 +156,7 @@ const Submissions: FC = () => {
     }
   }, [game, numId, t])
 
-  const filteredSubs = newSubmissions.current.filter((item) => type === 'All' || item.status === type)
+  const filteredSubs = newSubmissions.filter((item) => type === 'All' || item.status === type)
 
   const rows = [...(activePage === 1 ? filteredSubs : []), ...(submissions ?? [])].map((item, i) => (
     <Table.Tr

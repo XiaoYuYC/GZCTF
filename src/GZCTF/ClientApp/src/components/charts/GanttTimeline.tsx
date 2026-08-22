@@ -82,7 +82,7 @@ export const GanttTimeLine: FC<GanttTimeLineProps> = ({ items }) => {
     if (!viewport.current) return
 
     viewport.current.scrollTo({ left: viewport.current.scrollWidth / 3 })
-  }, [viewport.current])
+  }, [viewport])
 
   const { t } = useTranslation()
   const { locale } = useLanguage()
@@ -132,20 +132,14 @@ export const GanttTimeLine: FC<GanttTimeLineProps> = ({ items }) => {
     }
   }, [locale])
 
-  const [currentMonth, setCurrentMonth] = useState(dayjs().locale(locale).format('SMY'))
-
-  useEffect(() => {
-    const map = dateData.monthMap
-
-    for (let i = 0; i < map.length; i++) {
-      if (scrollPosition.x > map[i].position) {
-        const str = map[i].time.locale(locale).format('SMY')
-        if (str === currentMonth) return
-        setCurrentMonth(str)
-        break
-      }
+  let currentMonth = dayjs().locale(locale).format('SMY')
+  const map = dateData.monthMap
+  for (let i = 0; i < map.length; i++) {
+    if (scrollPosition.x > map[i].position) {
+      currentMonth = map[i].time.locale(locale).format('SMY')
+      break
     }
-  }, [scrollPosition, locale, dateData.monthMap])
+  }
 
   const nowOffset = (dateData.now.diff(dateData.start, 's') / dateData.duration) * VIEW_WIDTH + STICKY_WIDTH
   const scrollPos = scrollPosition.x + EDGE_PADDING
