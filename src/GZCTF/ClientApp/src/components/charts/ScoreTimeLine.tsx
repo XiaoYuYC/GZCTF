@@ -42,10 +42,9 @@ export const ScoreTimeLine: FC<TimeLineProps> = ({ divisionId }) => {
   const divisionTimelineMap = useMemo(() => {
     const map = new Map<number, TopTimeLine[]>()
 
-    const timelines = scoreboard?.timelines
-    if (!timelines) return map
+    if (!scoreboard?.timelines) return map
 
-    timelines.forEach((item) => {
+    scoreboard.timelines.forEach((item) => {
       const key = item.divisionId ?? 0
       map.set(key, item.teams ?? [])
     })

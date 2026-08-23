@@ -1,5 +1,5 @@
 import { ModalProps, Modal, Stack, Select, Button } from '@mantine/core'
-import { FC, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Division, ParticipationEditModel } from '@Api'
 
@@ -19,12 +19,10 @@ export const ParticipationDivisionEditModal: FC<ParticipationDivisionEditModalPr
 
   const options = useMemo(() => divisions.map((div) => ({ value: div.id.toString(), label: div.name })), [divisions])
 
-  const [prevProps, setPrevProps] = useState({ opened: modalProps.opened, currentDivisionId })
-  if (prevProps.opened !== modalProps.opened || prevProps.currentDivisionId !== currentDivisionId) {
-    setPrevProps({ opened: modalProps.opened, currentDivisionId })
+  useEffect(() => {
     setDivisionId(currentDivisionId ? currentDivisionId.toString() : '')
     setDisabled(false)
-  }
+  }, [currentDivisionId, modalProps.opened])
 
   const onConfirm = async () => {
     const nextDivisionId = divisionId ? parseInt(divisionId, 10) : null

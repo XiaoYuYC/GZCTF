@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { OnceSWRConfig } from '@Hooks/useConfig'
 import api, { ChallengeInfoModel } from '@Api'
 
@@ -11,10 +11,13 @@ export const useEditChallenge = (numId: number, numCId: number) => {
 export const useEditChallenges = (numId: number) => {
   const { data, error, mutate } = api.edit.useEditGetGameChallenges(numId, OnceSWRConfig)
 
-  const sortedChallenges = useMemo<ChallengeInfoModel[] | null>(
-    () => (data ? data.toSorted((a, b) => ((a.category ?? '') > (b.category ?? '') ? -1 : 1)) : null),
-    [data]
-  )
+  const [sortedChallenges, setSortedChallenges] = useState<ChallengeInfoModel[] | null>(null)
+
+  useEffect(() => {
+    if (data) {
+      setSortedChallenges(data.toSorted((a, b) => ((a.category ?? '') > (b.category ?? '') ? -1 : 1)))
+    }
+  }, [data])
 
   return { challenges: sortedChallenges, error, mutate }
 }

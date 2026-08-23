@@ -2,7 +2,7 @@ import { Button, Modal, ModalProps, Select, Stack, TextInput } from '@mantine/co
 import { showNotification } from '@mantine/notifications'
 import { mdiClose } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { OnceSWRConfig } from '@Hooks/useConfig'
@@ -31,25 +31,21 @@ export const GameJoinModal: FC<GameJoinModalProps> = (props) => {
 
   const { t } = useTranslation()
 
-  const [prevTeamState, setPrevTeamState] = useState({ team, teams })
-  if (prevTeamState.team !== team || prevTeamState.teams !== teams) {
-    setPrevTeamState({ team, teams })
+  useEffect(() => {
     if (!team && teams && teams.length >= 1) {
       setTeam(teams[0].id!.toString())
     }
-  }
+  }, [team, teams])
 
-  const [prevDivisionState, setPrevDivisionState] = useState({ divisionId, game })
-  if (prevDivisionState.divisionId !== divisionId || prevDivisionState.game !== game) {
-    setPrevDivisionState({ divisionId, game })
-    if (!divisionId) {
-      if (typeof game?.division === 'number') {
-        setDivisionId(game.division.toString())
-      } else if (game?.divisions && game.divisions.length >= 1 && !!game.divisions[0].id) {
-        setDivisionId(game.divisions[0].id.toString())
-      }
+  useEffect(() => {
+    if (divisionId) return
+
+    if (typeof game?.division === 'number') {
+      setDivisionId(game.division.toString())
+    } else if (game?.divisions && game.divisions.length >= 1 && !!game.divisions[0].id) {
+      setDivisionId(game.divisions[0].id.toString())
     }
-  }
+  }, [divisionId, game])
 
   const divisionOptions = useMemo(
     () =>
@@ -88,13 +84,11 @@ export const GameJoinModal: FC<GameJoinModalProps> = (props) => {
     ? Boolean(selectedDivision?.inviteCodeRequired)
     : Boolean(game?.inviteCodeRequired)
 
-  const [prevRequire, setPrevRequire] = useState(shouldRequireInviteCode)
-  if (prevRequire !== shouldRequireInviteCode) {
-    setPrevRequire(shouldRequireInviteCode)
+  useEffect(() => {
     if (!shouldRequireInviteCode) {
       setInviteCode('')
     }
-  }
+  }, [shouldRequireInviteCode])
 
   const onJoinGame = async () => {
     setDisabled(true)

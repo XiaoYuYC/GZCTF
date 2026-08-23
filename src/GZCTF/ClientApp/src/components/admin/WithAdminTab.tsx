@@ -43,18 +43,16 @@ export const WithAdminTab: FC<AdminTabProps> = ({ head, headProps, isLoading, ch
   const tabIndex = getTab(location.pathname)
   const [activeTab, setActiveTab] = useState(tabIndex < 0 ? 0 : tabIndex)
 
-  const currentTab = getTab(location.pathname)
-  if (currentTab >= 0 && currentTab !== activeTab) {
-    setActiveTab(currentTab)
-  }
-
   const onChange = (active: number, tabKey: string) => {
     setActiveTab(active)
     navigate(`/admin/${tabKey}`)
   }
 
   useEffect(() => {
-    if (getTab(location.pathname) < 0) {
+    const tab = getTab(location.pathname)
+    if (tab >= 0) {
+      setActiveTab(tab)
+    } else {
       navigate(pages[0].path)
     }
   }, [location])

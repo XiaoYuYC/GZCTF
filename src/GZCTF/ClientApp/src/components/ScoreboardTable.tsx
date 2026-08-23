@@ -249,16 +249,12 @@ export const ScoreboardTable: FC<ScoreboardProps> = ({ divisionId, setDivisionId
   const numId = parseInt(id ?? '-1')
   const { iconMap } = SubmissionTypeIconMap(1)
   const [activePage, setPage] = useState(1)
+  const [bloodBonus, setBloodBonus] = useState(BloodBonus.default)
 
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword] = useDebouncedValue(keyword, 400)
 
   const { scoreboard } = useGameScoreboard(numId)
-
-  const bloodBonus = useMemo(
-    () => (scoreboard ? new BloodBonus(scoreboard.bloodBonus) : BloodBonus.default),
-    [scoreboard]
-  )
 
   const divisionMap = useMemo(() => {
     const map = new Map<number, string>()
@@ -299,13 +295,11 @@ export const ScoreboardTable: FC<ScoreboardProps> = ({ divisionId, setDivisionId
     return scoreboard.items.filter((s) => s.rank > 0)
   }, [scoreboard, debouncedKeyword, divisionId])
 
-  const [prevId, setPrevId] = useState(id)
-  if (prevId !== id) {
-    setPrevId(id)
+  useEffect(() => {
     setPage(1)
     setDivisionId(null)
     setKeyword('')
-  }
+  }, [id, setDivisionId])
 
   const base = (activePage - 1) * ITEM_COUNT_PER_PAGE
   const currentItems = filteredList?.slice(base, base + ITEM_COUNT_PER_PAGE)
@@ -314,6 +308,12 @@ export const ScoreboardTable: FC<ScoreboardProps> = ({ divisionId, setDivisionId
   const [itemDetailOpened, setItemDetailOpened] = useState(false)
 
   const { t } = useTranslation()
+
+  useEffect(() => {
+    if (scoreboard) {
+      setBloodBonus(new BloodBonus(scoreboard.bloodBonus))
+    }
+  }, [scoreboard])
 
   const bloodData = useBonusLabels(bloodBonus)
   const hasDivisionFilter = divisionOptions.length > 0

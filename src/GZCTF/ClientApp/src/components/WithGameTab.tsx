@@ -104,16 +104,18 @@ export const WithGameTab: FC<React.PropsWithChildren> = ({ children }) => {
   const tabIndex = getTab(location.pathname)
   const [activeTab, setActiveTab] = useState(tabIndex < 0 ? 0 : tabIndex)
 
-  if (tabIndex >= 0 && tabIndex !== activeTab) {
-    setActiveTab(tabIndex)
-  }
-
   const onChange = (active: number, tabKey: string) => {
     setActiveTab(active)
     navigate(`/games/${numId}/${tabKey}`)
   }
 
   usePageTitle(game?.title)
+
+  useEffect(() => {
+    const tab = getTab(location.pathname)
+    if (!tab || tab < 0) return
+    setActiveTab(tab)
+  })
 
   useEffect(() => {
     if (game) {

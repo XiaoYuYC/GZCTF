@@ -16,7 +16,7 @@ import {
 import { showNotification } from '@mantine/notifications'
 import { mdiCheck, mdiLockOutline, mdiStar } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { showErrorMsg } from '@Utils/Shared'
 import api, { AdminTeamModel, TeamInfoModel } from '@Api'
@@ -36,12 +36,10 @@ export const TeamEditModal: FC<TeamEditModalProps> = (props) => {
 
   const { t } = useTranslation()
 
-  const [prevTeam, setPrevTeam] = useState(team)
-  if (prevTeam !== team) {
-    setPrevTeam(team)
+  useEffect(() => {
     setTeamInfo({ ...team })
     setActiveTeam(team)
-  }
+  }, [team])
 
   const onChangeTeamInfo = async () => {
     setDisabled(true)

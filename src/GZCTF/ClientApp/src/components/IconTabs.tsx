@@ -1,6 +1,6 @@
 import { Box, Group, GroupProps, MantineColor, useMantineColorScheme, useMantineTheme } from '@mantine/core'
 import { clamp } from '@mantine/hooks'
-import React, { FC, useState } from 'react'
+import React, { FC, useEffect, useState } from 'react'
 import { LogoHeader } from '@Components/LogoHeader'
 import classes from '@Styles/IconTabs.module.css'
 
@@ -56,11 +56,9 @@ export const IconTabs: FC<IconTabsProps> = (props) => {
     color ? theme.colors[theme.primaryColor][colorScheme === 'dark' ? 4 : 6] : undefined
   const current = clamp(activeTab, 0, tabs.length - 1)
 
-  const [prevActive, setPrevActive] = useState(active)
-  if (prevActive !== active) {
-    setPrevActive(active)
+  useEffect(() => {
     setActiveTab(active ?? 0)
-  }
+  }, [active])
 
   const panes = tabs.map((tab, index) => (
     <Tab

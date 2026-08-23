@@ -1,6 +1,6 @@
 import { BoxProps, Group, InputBase, Text, InputBaseProps } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
-import { forwardRef, useState, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useState, useEffect, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CaptchaInstance } from '@Components/Captcha'
 import { PowWorker } from '@Components/icon/PowWorker'
@@ -50,7 +50,7 @@ export const usePowChallenge = () => {
 
   const [result, setNonce] = useState<PowResult | null>(null)
   const [error, setError] = useState<boolean>(false)
-  const workerRef = useRef<Worker | null>(null)
+  const [worker, setWorker] = useState<Worker | null>(null)
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
@@ -63,15 +63,13 @@ export const usePowChallenge = () => {
         setError(true)
       }
     }
-    workerRef.current = worker
+    setWorker(worker)
     return () => {
-      workerRef.current = null
       worker.terminate()
     }
   }, [])
 
   useEffect(() => {
-    const worker = workerRef.current
     if (!worker) return
 
     if (data.chall && Date.now() - data.time < 4 * 60 * 1000) {
@@ -79,12 +77,11 @@ export const usePowChallenge = () => {
         chall: data.chall.challenge,
         diff: data.chall.difficulty,
       } as PowRequest)
-      // oxlint-disable-next-line set-state-in-effect -- worker computation has started
       setPending(true)
     } else {
       fetchPowChallenge()
     }
-  }, [data])
+  }, [worker, data])
 
   return { chall: data.chall, error, mutate: fetchPowChallenge, result: pending ? null : result }
 }

@@ -1,5 +1,5 @@
 import { Box, Center, Paper, ScrollArea, Stack, Text, em } from '@mantine/core'
-import { FC, useLayoutEffect, useRef, useState } from 'react'
+import { FC, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useTranslation } from 'react-i18next'
 import { Document, Page, pdfjs } from 'react-pdf'
@@ -23,13 +23,7 @@ export const PDFViewer: FC<PDFViewerProps> = ({ url, height }) => {
   const ref = useRef<HTMLDivElement>(null)
 
   const renderWidth = Math.round(2480 / 3)
-  const [pageWidth, setPageWidth] = useState(renderWidth)
-
-  useLayoutEffect(() => {
-    if (!ref.current) return
-    setPageWidth(ref.current.offsetWidth)
-  }, [numPages, url])
-
+  const pageWidth = ref.current?.offsetWidth ?? renderWidth
   const ratio = pageWidth / renderWidth
 
   return (

@@ -1,7 +1,7 @@
 import { Button, Center, Group, ScrollArea, Select, Stack, Text, Title } from '@mantine/core'
 import { mdiFolderDownloadOutline } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useState, useMemo } from 'react'
+import { FC, useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { PDFViewer } from '@Components/admin/PDFViewer'
@@ -36,13 +36,11 @@ const GameWriteups: FC = () => {
     return selectedDivision ? writeups.filter((w) => w.divisionId === div) : writeups
   }, [selectedDivision, writeups])
 
-  const [prevState, setPrevState] = useState({ filteredWriteups, selected })
-  if (prevState.filteredWriteups !== filteredWriteups || prevState.selected !== selected) {
-    setPrevState({ filteredWriteups, selected })
+  useEffect(() => {
     if (filteredWriteups?.length && (!selected || !filteredWriteups.some((w) => w.id === selected.id))) {
       setSelected(filteredWriteups[0])
     }
-  }
+  }, [filteredWriteups, selected])
 
   return (
     <WithGameEditTab

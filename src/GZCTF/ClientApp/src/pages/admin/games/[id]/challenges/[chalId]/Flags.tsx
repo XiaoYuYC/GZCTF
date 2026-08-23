@@ -23,7 +23,7 @@ import { useModals } from '@mantine/modals'
 import { showNotification } from '@mantine/notifications'
 import { mdiCheck, mdiPuzzleEditOutline } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { AttachmentRemoteEditModal } from '@Components/admin/AttachmentRemoteEditModal'
@@ -58,15 +58,13 @@ const OneAttachmentWithFlags: FC<FlagEditProps> = ({ onDelete }) => {
   const { colorScheme } = useMantineColorScheme()
   const { t } = useTranslation()
 
-  const [prevChallenge, setPrevChallenge] = useState(challenge)
-  if (prevChallenge !== challenge) {
-    setPrevChallenge(challenge)
+  useEffect(() => {
     if (challenge) {
       setType(challenge.attachment?.type ?? FileType.None)
       setRemoteUrl(challenge.attachment?.url ?? '')
       setFlagTemplate(challenge.flagTemplate ?? '')
     }
-  }
+  }, [challenge])
 
   const onConfirmClear = async () => {
     setDisabled(true)

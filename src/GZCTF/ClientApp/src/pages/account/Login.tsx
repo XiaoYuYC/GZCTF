@@ -3,7 +3,7 @@ import { useInputState } from '@mantine/hooks'
 import { showNotification, updateNotification } from '@mantine/notifications'
 import { mdiCheck, mdiClose } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useEffect, useRef, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { AccountView } from '@Components/AccountView'
@@ -23,7 +23,7 @@ const Login: FC = () => {
   const [pwd, setPwd] = useInputState('')
   const [uname, setUname] = useInputState('')
   const [disabled, setDisabled] = useState(false)
-  const needRedirect = useRef(false)
+  const [needRedirect, setNeedRedirect] = useState(false)
 
   const { captchaRef, getToken, cleanUp } = useCaptchaRef()
   const { user, mutate } = useUser()
@@ -34,13 +34,13 @@ const Login: FC = () => {
   usePageTitle(t('account.title.login'))
 
   useEffect(() => {
-    if (needRedirect.current && user) {
-      needRedirect.current = false
+    if (needRedirect && user) {
+      setNeedRedirect(false)
       setTimeout(() => {
         navigate(params.get('from') ?? '/')
       }, 200)
     }
-  }, [user, navigate, params])
+  }, [user, needRedirect])
 
   const onLogin = async (event: React.SyntheticEvent) => {
     event.preventDefault()
@@ -96,7 +96,7 @@ const Login: FC = () => {
         loading: false,
       })
       cleanUp(true)
-      needRedirect.current = true
+      setNeedRedirect(true)
       mutate()
     } catch (err: any) {
       const { title, message } = tryGetClientError(err, t)

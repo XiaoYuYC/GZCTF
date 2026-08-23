@@ -17,7 +17,7 @@ import { useLocalStorage } from '@mantine/hooks'
 import { mdiFileUploadOutline, mdiFlagOutline, mdiPuzzle } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useParams } from 'react-router'
 import { ChallengeCard } from '@Components/ChallengeCard'
@@ -63,9 +63,7 @@ export const ChallengePanel: FC = () => {
   const challengeCategoryLabelMap = useChallengeCategoryLabelMap()
   const { t } = useTranslation()
 
-  const [prevLinkState, setPrevLinkState] = useState({ hash, allChallenges })
-  if (prevLinkState.hash !== hash || prevLinkState.allChallenges !== allChallenges) {
-    setPrevLinkState({ hash, allChallenges })
+  useEffect(() => {
     const challId = hash.slice(1).split('-')[0]
     if (challId && allChallenges) {
       const id = parseInt(challId)
@@ -78,7 +76,7 @@ export const ChallengePanel: FC = () => {
         setDetailOpened(true)
       }
     }
-  }
+  }, [hash, challenge, allChallenges])
 
   // skeleton for loading
   if (!challenges) {

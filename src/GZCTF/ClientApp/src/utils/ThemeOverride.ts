@@ -13,11 +13,12 @@ import {
   Tabs,
   Tooltip,
   TooltipFloating,
+  createTheme,
   useMantineTheme,
 } from '@mantine/core'
 import { createStyles } from '@mantine/emotion'
 import { useLocalStorage, useMediaQuery } from '@mantine/hooks'
-import { useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useConfig } from '@Hooks/useConfig'
 import tooltipClasses from '@Styles/Tooltip.module.css'
 
@@ -240,9 +241,12 @@ export const useCustomTheme = () => {
     return color && /^#[0-9A-F]{6}$/i.test(color) ? color : null
   }
 
-  const theme = useMemo<MantineThemeOverride>(() => {
+  const [theme, setTheme] = useState<MantineThemeOverride>(createTheme(CustomTheme))
+
+  useEffect(() => {
     if (customColor.provider === ColorProvider.Default) {
-      return CustomTheme
+      setTheme(CustomTheme)
+      return
     }
 
     const resolvedColor =
@@ -253,7 +257,7 @@ export const useCustomTheme = () => {
           : null
 
     if (resolvedColor) {
-      return {
+      setTheme({
         ...CustomTheme,
         colors: {
           ...CustomTheme.colors,
@@ -268,9 +272,9 @@ export const useCustomTheme = () => {
           }),
         },
         primaryColor: 'custom',
-      }
+      })
     } else {
-      return CustomTheme
+      setTheme(CustomTheme)
     }
   }, [customColor, config.customTheme])
 

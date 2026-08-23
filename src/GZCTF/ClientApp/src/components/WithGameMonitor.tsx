@@ -36,13 +36,11 @@ export const WithGameMonitor: FC<WithGameMonitorProps> = ({ children, isLoading 
   const [activeTab, setActiveTab] = useState(getTab(location.pathname)?.path ?? pages[0].path)
   const [disabled, setDisabled] = useState(false)
 
-  const matchedTab = getTab(location.pathname)
-  if (matchedTab && matchedTab.path !== activeTab) {
-    setActiveTab(matchedTab.path)
-  }
-
   useEffect(() => {
-    if (!getTab(location.pathname)) {
+    const tab = getTab(location.pathname)
+    if (tab) {
+      setActiveTab(tab.path ?? '')
+    } else {
       navigate(pages[0].path)
     }
   }, [location])

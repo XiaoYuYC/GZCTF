@@ -20,7 +20,7 @@ import { Dropzone } from '@mantine/dropzone'
 import { notifications, showNotification, updateNotification } from '@mantine/notifications'
 import { mdiCheck, mdiClose } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { PasswordChangeModal } from '@Components/PasswordChangeModal'
 import { WithNavBar } from '@Components/WithNavbar'
@@ -58,9 +58,7 @@ const Profile: FC = () => {
 
   usePageTitle(t('account.title.profile'))
 
-  const [prevUser, setPrevUser] = useState(user)
-  if (prevUser !== user) {
-    setPrevUser(user)
+  useEffect(() => {
     setProfile({
       userName: user?.userName,
       bio: user?.bio,
@@ -68,7 +66,7 @@ const Profile: FC = () => {
       phone: user?.phone,
       realName: user?.realName,
     })
-  }
+  }, [user])
 
   const onChangeAvatar = async () => {
     if (!avatarFile) return

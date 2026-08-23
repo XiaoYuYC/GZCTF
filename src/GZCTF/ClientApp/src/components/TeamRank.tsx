@@ -38,11 +38,8 @@ export const TeamRank: FC<CardProps> = (props) => {
   const solved = (teamInfo?.rank?.solvedCount ?? 0) / (teamInfo?.challengeCount ?? 1)
 
   const division = useMemo(() => {
-    const divisionId = teamInfo?.rank?.divisionId
-    const divisions = game?.divisions
-
-    if (divisionId && divisions) {
-      const division = divisions.find((d) => d.id === divisionId)
+    if (teamInfo?.rank?.divisionId && game?.divisions) {
+      const division = game.divisions.find((d) => d.id === teamInfo.rank!.divisionId)
       return division?.name ?? ''
     }
 

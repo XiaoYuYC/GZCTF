@@ -60,13 +60,9 @@ export const MobileScoreboardTable: FC<ScoreboardProps> = ({ divisionId, setDivi
   const { id } = useParams()
   const numId = parseInt(id ?? '-1')
   const [activePage, setPage] = useState(1)
+  const [bloodBonus, setBloodBonus] = useState(BloodBonus.default)
 
   const { scoreboard } = useGameScoreboard(numId)
-
-  const bloodBonus = useMemo(
-    () => (scoreboard ? new BloodBonus(scoreboard.bloodBonus) : BloodBonus.default),
-    [scoreboard]
-  )
 
   const divisionOptions = useMemo(
     () =>
@@ -99,6 +95,12 @@ export const MobileScoreboardTable: FC<ScoreboardProps> = ({ divisionId, setDivi
   const [itemDetailOpened, setItemDetailOpened] = useState(false)
 
   const { t } = useTranslation()
+
+  useEffect(() => {
+    if (scoreboard) {
+      setBloodBonus(new BloodBonus(scoreboard.bloodBonus))
+    }
+  }, [scoreboard])
 
   const divisionMap = useMemo(() => {
     const map = new Map<number, string>()

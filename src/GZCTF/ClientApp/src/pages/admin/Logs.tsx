@@ -38,14 +38,9 @@ const Logs: FC = () => {
   const [activePage, setPage] = useState(1)
   const theme = useMantineTheme()
 
-  const [newLogs, setNewLogs] = useState<LogMessageModel[]>([])
+  const [, update] = useState(new Date())
+  const newLogs = useRef<LogMessageModel[]>([])
   const [logs, setLogs] = useState<LogMessageModel[]>()
-
-  const [filterKey, setFilterKey] = useState(`${activePage}:${level}`)
-  if (filterKey !== `${activePage}:${level}`) {
-    setFilterKey(`${activePage}:${level}`)
-    setNewLogs([])
-  }
 
   const { t } = useTranslation()
   const { locale } = useLanguage()
@@ -75,7 +70,15 @@ const Logs: FC = () => {
     }
 
     fetchLogs()
+
+    if (activePage === 1) {
+      newLogs.current = []
+    }
   }, [activePage, level])
+
+  useEffect(() => {
+    setPage(1)
+  }, [level])
 
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
@@ -89,7 +92,8 @@ const Logs: FC = () => {
 
     connection.on('ReceivedLog', (message: LogMessageModel) => {
       console.log(message)
-      setNewLogs((prev) => [message, ...prev])
+      newLogs.current = [message, ...newLogs.current]
+      update(new Date(message.time!))
     })
 
     const startConnection = async () => {
@@ -114,13 +118,14 @@ const Logs: FC = () => {
     }
   }, [])
 
-  const rows = [...(activePage === 1 ? newLogs : []), ...(logs ?? [])]
+  const rows = [...(activePage === 1 ? newLogs.current : []), ...(logs ?? [])]
     .filter((item) => level === 'All' || item.level === level)
     .map((item, i) => (
       <Table.Tr
         key={`${item.time}@${i}`}
         className={cx({
-          [tableClasses.fade]: i === 0 && activePage === 1 && newLogs.length > 0 && newLogs[0].level === level,
+          [tableClasses.fade]:
+            i === 0 && activePage === 1 && newLogs.current.length > 0 && newLogs.current[0].level === level,
         })}
       >
         <Table.Td className={tableClasses.time}>
@@ -162,10 +167,7 @@ const Logs: FC = () => {
             color={theme.primaryColor}
             value={level}
             bg="transparent"
-            onChange={(value) => {
-              setLevel(value as LogLevel)
-              setPage(1)
-            }}
+            onChange={(value) => setLevel(value as LogLevel)}
             data={Object.entries(LogLevel).map((role) => ({
               value: role[1],
               label: role[0],

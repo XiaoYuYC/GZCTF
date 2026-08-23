@@ -20,7 +20,7 @@ import {
 } from '@mantine/core'
 import { mdiCheck, mdiContentSaveOutline, mdiRestore } from '@mdi/js'
 import { Icon } from '@mdi/react'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ColorPreview } from '@Components/ColorPreview'
 import { LogoBox } from '@Components/LogoBox'
@@ -50,16 +50,14 @@ const Configs: FC = () => {
   const [saved, setSaved] = useState(true)
   const theme = useMantineTheme()
 
-  const [prevConfigs, setPrevConfigs] = useState(configs)
-  if (prevConfigs !== configs) {
-    setPrevConfigs(configs)
+  useEffect(() => {
     if (configs) {
       setContainerPolicy(configs.containerPolicy)
       setGlobalConfig(configs.globalConfig)
       setAccountPolicy(configs.accountPolicy)
       setColor(configs.globalConfig?.customTheme)
     }
-  }
+  }, [configs])
 
   const updateConfig = async (conf: ConfigEditModel) => {
     setDisabled(true)
