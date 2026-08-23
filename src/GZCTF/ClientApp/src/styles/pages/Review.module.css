@@ -19,4 +19,18 @@
   user-select: none;
   line-height: 1;
   font-size: 1rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .root {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .col {
+    min-width: 0;
+    max-width: 100%;
+  }
 }

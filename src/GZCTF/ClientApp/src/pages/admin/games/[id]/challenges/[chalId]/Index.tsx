@@ -37,9 +37,11 @@ import {
   useChallengeTypeLabelMap,
   ChallengeCategoryList,
 } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { useEditChallenge, useEditChallenges } from '@Hooks/useEdit'
 import { useGame } from '@Hooks/useGame'
 import api, { ChallengeCategory, ChallengeType, ChallengeUpdateModel, NetworkMode } from '@Api'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 import misc from '@Styles/Misc.module.css'
 
 const GameChallengeEdit: FC = () => {
@@ -71,6 +73,7 @@ const GameChallengeEdit: FC = () => {
   const networkModeLabelMap = useNetworkModeMap()
 
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (challenge) {
@@ -208,7 +211,7 @@ const GameChallengeEdit: FC = () => {
           <Title lineClamp={1} className={misc.wordBreakAll}>
             # {challengeInfo?.title}
           </Title>
-          <Group wrap="nowrap" justify="right">
+          <Group wrap="nowrap" justify="right" className={layoutClasses.mobileStackGroup}>
             <Button
               disabled={disabled}
               color="red"
@@ -264,7 +267,7 @@ const GameChallengeEdit: FC = () => {
       }
     >
       <Stack>
-        <Grid columns={3}>
+        <Grid columns={3} className={layoutClasses.mobileStackGrid}>
           <Grid.Col span={1}>
             <TextInput
               label={t('admin.content.games.challenges.title')}
@@ -354,6 +357,7 @@ const GameChallengeEdit: FC = () => {
                 label={t('admin.content.games.challenges.deadline.label')}
                 placeholder={t('admin.content.games.challenges.deadline.placeholder')}
                 size="sm"
+                dropdownType={isMobile ? 'modal' : 'popover'}
                 value={deadline?.toDate()}
                 valueFormat="L LT"
                 disabled={disabled}
@@ -384,7 +388,7 @@ const GameChallengeEdit: FC = () => {
           </Grid.Col>
           <Grid.Col span={1}>
             <Stack h="100%">
-              <Group wrap="nowrap">
+              <Group wrap="nowrap" className={layoutClasses.mobileStackGroup}>
                 <NumberInput
                   label={t('admin.content.games.challenges.score')}
                   min={0}
@@ -465,9 +469,9 @@ const GameChallengeEdit: FC = () => {
           />
         )}
         {(type === ChallengeType.StaticContainer || type === ChallengeType.DynamicContainer) && (
-          <Grid columns={12}>
+          <Grid columns={12} className={layoutClasses.mobileStackGrid}>
             <Grid.Col span={8}>
-              <Group justify="space-between" align="flex-end">
+              <Group justify="space-between" align="flex-end" className={layoutClasses.mobileStackGroup}>
                 <TextInput
                   label={t('admin.content.games.challenges.container_image')}
                   disabled={disabled}

@@ -6,8 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { Link, useParams, useLocation } from 'react-router'
 import { WithGameEditTab, GameEditTabProps } from '@Components/admin/WithGameEditTab'
 import { useChallengeCategoryLabelMap } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { useEditChallenges } from '@Hooks/useEdit'
 import { ChallengeInfoModel, ChallengeCategory } from '@Api'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 
 export const WithChallengeEdit: FC<GameEditTabProps> = (props) => {
   const { children, isLoading, ...rest } = props
@@ -17,6 +19,7 @@ export const WithChallengeEdit: FC<GameEditTabProps> = (props) => {
   const { challenges } = useEditChallenges(numId)
   const { t } = useTranslation()
   const theme = useMantineTheme()
+  const isMobile = useIsMobile()
 
   const getBeforeNext = (challenges: ChallengeInfoModel[], id: number) => {
     const index = challenges.findIndex((chal) => chal.id === id)
@@ -45,9 +48,15 @@ export const WithChallengeEdit: FC<GameEditTabProps> = (props) => {
 
   return (
     <WithGameEditTab isLoading={isLoading} {...rest}>
-      <Stack mih="calc(100vh - 12rem)" justify="space-between">
+      <Stack mih="calc(100vh - 12rem)" justify="space-between" miw={0}>
         {children}
-        <Group justify="space-between" w="100%" wrap="nowrap">
+        <Group
+          justify="space-between"
+          w="100%"
+          wrap={isMobile ? 'wrap' : 'nowrap'}
+          gap="sm"
+          className={isMobile ? layoutClasses.mobileStackGroup : undefined}
+        >
           <Button
             justify="space-between"
             component={Link}
@@ -58,7 +67,14 @@ export const WithChallengeEdit: FC<GameEditTabProps> = (props) => {
             {t('admin.button.challenges.previous')}
           </Button>
 
-          <Group justify="space-between" gap="xs" wrap="nowrap" maw="calc(100% - 16rem)">
+          <Group
+            justify="space-between"
+            gap="xs"
+            wrap="nowrap"
+            maw={isMobile ? '100%' : 'calc(100% - 16rem)'}
+            miw={0}
+            className={layoutClasses.content}
+          >
             <Text c="dimmed" truncate>
               {prev?.title ?? ''}
             </Text>

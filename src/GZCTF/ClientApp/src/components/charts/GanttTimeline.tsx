@@ -5,6 +5,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useLanguage } from '@Utils/I18n'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import classes from '@Styles/GanttTimeline.module.css'
 
 interface GanttTimeLineProps {
@@ -52,7 +53,8 @@ const TodayBox = (i: number, content: string) => (
 
 const VIEW_WIDTH = 40 * 7 * 7
 const VIEW_HEIGHT = 300
-const STICKY_WIDTH = 240
+const DESKTOP_STICKY_WIDTH = 240
+const MOBILE_STICKY_WIDTH = 180
 const EDGE_PADDING = 10
 
 interface MonthHeader {
@@ -77,6 +79,8 @@ interface DateData {
 export const GanttTimeLine: FC<GanttTimeLineProps> = ({ items }) => {
   const viewport = useRef<HTMLDivElement>(null)
   const [scrollPosition, onScrollPositionChange] = useState({ x: 0, y: 0 })
+  const isMobile = useIsMobile()
+  const stickyWidth = isMobile ? MOBILE_STICKY_WIDTH : DESKTOP_STICKY_WIDTH
 
   useEffect(() => {
     if (!viewport.current) return
@@ -147,7 +151,7 @@ export const GanttTimeLine: FC<GanttTimeLineProps> = ({ items }) => {
     }
   }, [scrollPosition, locale, dateData.monthMap])
 
-  const nowOffset = (dateData.now.diff(dateData.start, 's') / dateData.duration) * VIEW_WIDTH + STICKY_WIDTH
+  const nowOffset = (dateData.now.diff(dateData.start, 's') / dateData.duration) * VIEW_WIDTH + stickyWidth
   const scrollPos = scrollPosition.x + EDGE_PADDING
 
   return (
@@ -155,7 +159,7 @@ export const GanttTimeLine: FC<GanttTimeLineProps> = ({ items }) => {
       <Box
         className={classes.view}
         __vars={{
-          '--sticky-width': `${STICKY_WIDTH}px`,
+          '--sticky-width': `${stickyWidth}px`,
           '--view-width': `${VIEW_WIDTH}px`,
           '--view-height': `${VIEW_HEIGHT}px`,
           '--now-offset': `${nowOffset}px`,
@@ -190,8 +194,8 @@ export const GanttTimeLine: FC<GanttTimeLineProps> = ({ items }) => {
                 key={item.id}
                 className={classes.dataRow}
                 __vars={{
-                  '--left': `${left + STICKY_WIDTH}px`,
-                  '--right': `${right + STICKY_WIDTH}px`,
+                  '--left': `${left + stickyWidth}px`,
+                  '--right': `${right + stickyWidth}px`,
                   '--width': `${right - left}px`,
                   '--color': item.color,
                 }}

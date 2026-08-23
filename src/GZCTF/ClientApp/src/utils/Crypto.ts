@@ -73,7 +73,7 @@ export async function encryptApiData(
   }
 
   try {
-    const plainTextBytes = new TextEncoder().encode(plainText)
+    const plainTextBytes: Buffer = Uint8Array.from(new TextEncoder().encode(plainText))
     const encryptedBytes = await encryptData(plainTextBytes, publicKey)
     return b64Decode(encryptedBytes)
   } catch (error) {

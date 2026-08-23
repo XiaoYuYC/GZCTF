@@ -65,12 +65,29 @@ export const WithNavBar: FC<WithNavBarProps> = ({
         >
           <AppHeader openColorModal={openColorModal} />
           <AppNavbar openColorModal={openColorModal} />
-          <AppShell.Main w="100%">
-            <Stack data-mobile={isMobile || undefined} data-pb={withFooter || undefined} className={classes.main}>
+          <AppShell.Main
+            w="100%"
+            style={{
+              minWidth: 0,
+              maxWidth: '100%',
+              overflowX: 'hidden',
+            }}
+          >
+            <Stack
+              data-mobile={isMobile || undefined}
+              data-pb={withFooter || undefined}
+              className={classes.main}
+              style={{
+                minWidth: 0,
+                maxWidth: '100%',
+              }}
+            >
               <LoadingOverlay visible={isLoading ?? false} overlayProps={DEFAULT_LOADING_OVERLAY} />
               {withHeader && <IconHeader px={isMobile ? '2%' : '10%'} sticky={stickyHeader} />}
               <Box
                 w={width ?? (isMobile ? '96%' : '80%')}
+                miw={0}
+                maw="100%"
                 style={{
                   zIndex: 20,
                 }}

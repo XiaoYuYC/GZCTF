@@ -9,6 +9,8 @@ import {
   Text,
   InputBase,
   NumberInput,
+  Select,
+  MultiSelect,
   SimpleGrid,
   Stack,
   Switch,
@@ -31,11 +33,29 @@ import { getInputNumber, showErrorMsg } from '@Utils/Shared'
 import { IMAGE_MIME_TYPES } from '@Utils/Shared'
 import { OnceSWRConfig, useCaptchaConfig, useConfig } from '@Hooks/useConfig'
 import api, { AccountPolicy, ConfigEditModel, ContainerPolicy, GlobalConfig } from '@Api'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 import misc from '@Styles/Misc.module.css'
+
+const SIDEBAR_ITEM_OPTIONS = [
+  { value: 'post', label: '文章' },
+  { value: 'game', label: '赛事' },
+  { value: 'team', label: '队伍' },
+  { value: 'about', label: '关于' },
+  { value: 'admin', label: '管理后台' },
+]
+
+const DEFAULT_SIDEBAR_ITEMS = ['home', ...SIDEBAR_ITEM_OPTIONS.map((item) => item.value)]
+
+const parseSidebarItems = (value?: string | null) =>
+  (value ?? DEFAULT_SIDEBAR_ITEMS.join(','))
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
 
 const Configs: FC = () => {
   const { data: configs, mutate } = api.admin.useAdminGetConfigs(OnceSWRConfig)
   const { mutate: mutateCaptchaConfig } = useCaptchaConfig()
+  const { data: games } = api.edit.useEditGetGames({ count: 100, skip: 0 }, OnceSWRConfig)
 
   const { mutate: mutateConfig } = useConfig()
   const [disabled, setDisabled] = useState(false)
@@ -128,7 +148,7 @@ const Configs: FC = () => {
         <Stack gap="sm">
           <Title order={2}>{t('admin.content.settings.platform.title')}</Title>
           <Divider />
-          <Grid columns={4} align="center">
+          <Grid columns={4} align="center" className={layoutClasses.mobileStackGrid}>
             <Grid.Col span={1}>
               <TextInput
                 label={t('admin.content.settings.platform.name.label')}
@@ -237,6 +257,58 @@ const Configs: FC = () => {
                 }}
               />
             </Grid.Col>
+            <Grid.Col span={1}>
+              <Select
+                label="首页展示赛事"
+                description="选择首页顶部预览的赛事，留空时显示近期赛事"
+                placeholder="选择赛事"
+                clearable
+                searchable
+                disabled={disabled}
+                value={globalConfig?.featuredGameId?.toString() ?? null}
+                data={(games?.data ?? []).map((game) => ({
+                  value: game.id?.toString() ?? '',
+                  label: `${game.title ?? '未命名赛事'} (#${game.id})`,
+                }))}
+                onChange={(value) =>
+                  setGlobalConfig({
+                    ...globalConfig,
+                    featuredGameId: value ? Number(value) : null,
+                  })
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={2}>
+              <MultiSelect
+                label="侧栏显示按钮"
+                description="统一控制所有用户侧边栏显示的导航按钮，首页始终显示"
+                placeholder="选择显示的按钮"
+                data={SIDEBAR_ITEM_OPTIONS}
+                value={parseSidebarItems(globalConfig?.sidebarVisibleItems).filter((item) => item !== 'home')}
+                disabled={disabled}
+                clearable
+                onChange={(sidebarVisibleItems) =>
+                  setGlobalConfig({
+                    ...globalConfig,
+                    sidebarVisibleItems: ['home', ...sidebarVisibleItems].join(','),
+                  })
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={1} className={misc.alignCenter}>
+              <Switch
+                checked={globalConfig?.showHomePosts ?? true}
+                disabled={disabled}
+                label="首页显示内容"
+                description="控制首页是否显示所选赛事内容或文章预览"
+                onChange={(event) =>
+                  setGlobalConfig({
+                    ...globalConfig,
+                    showHomePosts: event.currentTarget.checked,
+                  })
+                }
+              />
+            </Grid.Col>
             <Grid.Col span={1} className={misc.alignCenter}>
               <Switch
                 checked={globalConfig?.apiEncryption ?? false}
@@ -260,7 +332,7 @@ const Configs: FC = () => {
         <Stack gap="sm">
           <Title order={2}>{t('admin.content.settings.account.title')}</Title>
           <Divider />
-          <SimpleGrid cols={4}>
+          <SimpleGrid cols={{ base: 1, sm: 4 }}>
             <Switch
               checked={accountPolicy?.allowRegister ?? true}
               disabled={disabled}
@@ -331,7 +403,7 @@ const Configs: FC = () => {
         <Stack gap="sm">
           <Title order={2}>{t('admin.content.settings.container.title')}</Title>
           <Divider />
-          <SimpleGrid cols={4} className={misc.alignCenter}>
+          <SimpleGrid cols={{ base: 1, sm: 4 }} className={misc.alignCenter}>
             <NumberInput
               label={t('admin.content.settings.container.default_lifetime.label')}
               description={t('admin.content.settings.container.default_lifetime.description')}

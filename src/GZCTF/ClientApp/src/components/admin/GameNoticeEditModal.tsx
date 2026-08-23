@@ -6,6 +6,7 @@ import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { showErrorMsg } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import api, { GameNotice } from '@Api'
 
 interface GameNoticeEditModalProps extends ModalProps {
@@ -21,6 +22,7 @@ export const GameNoticeEditModal: FC<GameNoticeEditModalProps> = (props) => {
   const [content, setContent] = useState<string>(gameNotice?.values.at(-1) || '')
   const [disabled, setDisabled] = useState(false)
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     setContent(gameNotice?.values.at(-1) || '')
@@ -66,7 +68,7 @@ export const GameNoticeEditModal: FC<GameNoticeEditModalProps> = (props) => {
   }
 
   return (
-    <Modal {...modalProps}>
+    <Modal {...modalProps} size={isMobile ? 'calc(100vw - 2rem)' : modalProps.size}>
       <Stack>
         <Text>{t('admin.content.markdown_inline_support')}</Text>
         <Textarea

@@ -57,7 +57,7 @@ const GameNoticeEdit: FC = () => {
   return (
     <WithGameEditTab
       headProps={{ justify: 'space-between' }}
-      contentPos="right"
+      contentPos="flex-end"
       head={
         <Button
           leftSection={<Icon path={mdiPlus} size={1} />}

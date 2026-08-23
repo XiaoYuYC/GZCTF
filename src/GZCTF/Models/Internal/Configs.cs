@@ -264,6 +264,24 @@ public class GlobalConfig
     public string? CustomTheme { get; set; }
 
     /// <summary>
+    /// Game displayed on the homepage
+    /// </summary>
+    [CacheFlush(CacheKey.ClientConfig)]
+    public int? FeaturedGameId { get; set; }
+
+    /// <summary>
+    /// Whether to display posts on the homepage
+    /// </summary>
+    [CacheFlush(CacheKey.ClientConfig)]
+    public bool ShowHomePosts { get; set; } = true;
+
+    /// <summary>
+    /// Comma-separated sidebar navigation item identifiers visible to users
+    /// </summary>
+    [CacheFlush(CacheKey.ClientConfig)]
+    public string SidebarVisibleItems { get; set; } = "home,post,game,team,about,admin";
+
+    /// <summary>
     /// Use asymmetric encryption for API requests
     /// </summary>
     [CacheFlush(CacheKey.ClientConfig)]
@@ -318,6 +336,21 @@ public partial class ClientConfig
     public string? CustomTheme { get; set; }
 
     /// <summary>
+    /// Game displayed on the homepage
+    /// </summary>
+    public int? FeaturedGameId { get; set; }
+
+    /// <summary>
+    /// Whether to display posts on the homepage
+    /// </summary>
+    public bool ShowHomePosts { get; set; } = true;
+
+    /// <summary>
+    /// Comma-separated sidebar navigation item identifiers visible to users
+    /// </summary>
+    public string SidebarVisibleItems { get; set; } = "home,post,game,team,about,admin";
+
+    /// <summary>
     /// The public key used for API requests
     /// </summary>
     public string? ApiPublicKey { get; set; }
@@ -365,6 +398,9 @@ public partial class ClientConfig
             Slogan = globalConfig.Slogan,
             FooterInfo = globalConfig.FooterInfo,
             CustomTheme = globalConfig.CustomTheme,
+            FeaturedGameId = globalConfig.FeaturedGameId,
+            ShowHomePosts = globalConfig.ShowHomePosts,
+            SidebarVisibleItems = globalConfig.SidebarVisibleItems,
             LogoUrl = globalConfig.LogoUrl,
             ApiPublicKey = globalConfig.ApiEncryption ? managedConfig.ApiEncryption.PublicKey : null,
             PortMapping = containerProvider.PortMappingType,

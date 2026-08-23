@@ -1,0 +1,80 @@
+.root {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.head {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.editTabs {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.editTabList {
+  min-width: 0;
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .head {
+    align-items: stretch;
+  }
+
+  .mobileStackGrid > * > * {
+    flex-basis: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobileStackGroup {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .mobileStackGroup > * {
+    max-width: 100%;
+  }
+
+  .mobileFullWidth {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .mobileScrollX {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .head :global(.mantine-TextInput-root),
+  .head :global(.mantine-Select-root) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .editTabs {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .editTabList {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+  }
+
+  .editTab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}

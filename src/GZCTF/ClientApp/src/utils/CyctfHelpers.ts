@@ -52,29 +52,26 @@ export const isRegistrationOpen = (startTime: string, endTime: string): boolean 
   return now.isAfter(dayjs(startTime)) && now.isBefore(dayjs(endTime))
 }
 
-export const getRegistrationStatusText = (
-  startTime: string,
-  endTime: string
-): { text: string; color: string } => {
+export const getRegistrationStatusText = (startTime: string, endTime: string): { text: string; color: string } => {
   const now = dayjs()
 
   if (now.isBefore(dayjs(startTime))) {
     return {
       text: `报名将于 ${dayjs(startTime).format('YYYY-MM-DD HH:mm')} 开始`,
-      color: 'blue'
+      color: 'blue',
     }
   }
 
   if (now.isAfter(dayjs(endTime))) {
     return {
       text: '报名已结束',
-      color: 'gray'
+      color: 'gray',
     }
   }
 
   return {
     text: `报名进行中，截止时间：${dayjs(endTime).format('YYYY-MM-DD HH:mm')}`,
-    color: 'green'
+    color: 'green',
   }
 }
 

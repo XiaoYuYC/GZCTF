@@ -4,9 +4,9 @@ import {
   ColorInput,
   Group,
   Modal,
-  MultiSelect,
   NumberInput,
   Paper,
+  ScrollArea,
   Stack,
   Table,
   Text,
@@ -16,34 +16,30 @@ import {
 } from '@mantine/core'
 import { useDisclosure, useInputState } from '@mantine/hooks'
 import { showNotification } from '@mantine/notifications'
-import { mdiCheck, mdiDeleteOutline, mdiPencilOutline, mdiPlus } from '@mdi/js'
+import { mdiArrowDown, mdiArrowUp, mdiCheck, mdiDeleteOutline, mdiPencilOutline, mdiPlus } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { WithGameEditTab } from '@Components/admin/WithGameEditTab'
 import { showErrorMsg } from '@Utils/Shared'
-import { useAdminGame } from '@Hooks/useGame'
 import api from '@Api'
 import type { AwardRequest, AwardResponse } from '@Api'
 
 const CyctfAwards: FC = () => {
   const { id } = useParams()
   const numId = parseInt(id ?? '-1')
-  const { game } = useAdminGame(numId)
   const { t } = useTranslation()
 
   const [awards, setAwards] = useState<AwardResponse[]>([])
   const [editingAward, setEditingAward] = useState<AwardResponse | null>(null)
   const [opened, { open, close }] = useDisclosure(false)
-  const [teams, setTeams] = useState<{ value: string; label: string }[]>([])
 
   const [name, setName] = useInputState('')
   const [description, setDescription] = useInputState('')
   const [primaryColor, setPrimaryColor] = useInputState('#3B6DFF')
   const [secondaryColor, setSecondaryColor] = useInputState('#6EE7B7')
   const [sortOrder, setSortOrder] = useState(0)
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([])
 
   useEffect(() => {
     if (numId > 0) {
@@ -53,18 +49,8 @@ const CyctfAwards: FC = () => {
 
   const loadData = async () => {
     try {
-      const [awardsRes, teamsRes] = await Promise.all([
-        api.award.awardGetAwards(numId),
-        api.game.gameParticipations(numId, {}),
-      ])
-      setAwards(awardsRes)
-
-      // 转换队伍数据为 MultiSelect 格式
-      const teamOptions = teamsRes.data.map((p: any) => ({
-        value: p.team.id.toString(),
-        label: p.team.name || `Team ${p.team.id}`,
-      }))
-      setTeams(teamOptions)
+      const response = await api.award.awardGetAwards(numId)
+      setAwards(response.data)
     } catch (err) {
       showErrorMsg(err, t)
     }
@@ -73,20 +59,20 @@ const CyctfAwards: FC = () => {
   const openModal = (award?: AwardResponse) => {
     if (award) {
       setEditingAward(award)
-      setName(award.name)
+      setName(award.name ?? '')
       setDescription(award.description || '')
       setPrimaryColor(award.primaryColor || '#3B6DFF')
       setSecondaryColor(award.secondaryColor || '#6EE7B7')
-      setSortOrder(award.sortOrder)
-      setSelectedTeams(award.teamIds?.map((id) => id.toString()) || [])
+      setSortOrder(award.sortOrder ?? 0)
     } else {
       setEditingAward(null)
       setName('')
       setDescription('')
       setPrimaryColor('#3B6DFF')
       setSecondaryColor('#6EE7B7')
-      setSortOrder(0)
-      setSelectedTeams([])
+      // 自动分配下一个可用排序号
+      const maxOrder = awards.reduce((max, a) => Math.max(max, a.sortOrder ?? 0), 0)
+      setSortOrder(maxOrder + 1)
     }
     open()
   }
@@ -110,7 +96,7 @@ const CyctfAwards: FC = () => {
     }
 
     try {
-      if (editingAward) {
+      if (editingAward?.id !== undefined) {
         await api.award.awardUpdateAward(numId, editingAward.id, data)
       } else {
         await api.award.awardCreateAward(numId, data)
@@ -129,6 +115,7 @@ const CyctfAwards: FC = () => {
 
   const onDelete = async (award: AwardResponse) => {
     if (!confirm(`确定要删除奖项 "${award.name}" 吗？`)) return
+    if (award.id === undefined) return
 
     try {
       await api.award.awardDeleteAward(numId, award.id)
@@ -143,83 +130,157 @@ const CyctfAwards: FC = () => {
     }
   }
 
+  const onMoveUp = async (award: AwardResponse, index: number) => {
+    if (index === 0) return
+    if (award.id === undefined) return
+
+    const prevAward = awards[index - 1]
+    if (prevAward?.id === undefined) return
+
+    try {
+      // 交换两条记录的 sortOrder
+      await api.award.awardUpdateAward(numId, award.id, {
+        name: award.name ?? '',
+        description: award.description,
+        primaryColor: award.primaryColor,
+        secondaryColor: award.secondaryColor,
+        sortOrder: prevAward.sortOrder,
+      })
+      await api.award.awardUpdateAward(numId, prevAward.id, {
+        name: prevAward.name ?? '',
+        description: prevAward.description,
+        primaryColor: prevAward.primaryColor,
+        secondaryColor: prevAward.secondaryColor,
+        sortOrder: award.sortOrder,
+      })
+      showNotification({
+        color: 'teal',
+        message: '排序已更新',
+        icon: <Icon path={mdiCheck} size={1} />,
+      })
+      loadData()
+    } catch (err) {
+      showErrorMsg(err, t)
+    }
+  }
+
+  const onMoveDown = async (award: AwardResponse, index: number) => {
+    if (index === awards.length - 1) return
+    if (award.id === undefined) return
+
+    const nextAward = awards[index + 1]
+    if (nextAward?.id === undefined) return
+
+    try {
+      // 交换两条记录的 sortOrder
+      await api.award.awardUpdateAward(numId, award.id, {
+        name: award.name ?? '',
+        description: award.description,
+        primaryColor: award.primaryColor,
+        secondaryColor: award.secondaryColor,
+        sortOrder: nextAward.sortOrder,
+      })
+      await api.award.awardUpdateAward(numId, nextAward.id, {
+        name: nextAward.name ?? '',
+        description: nextAward.description,
+        primaryColor: nextAward.primaryColor,
+        secondaryColor: nextAward.secondaryColor,
+        sortOrder: award.sortOrder,
+      })
+      showNotification({
+        color: 'teal',
+        message: '排序已更新',
+        icon: <Icon path={mdiCheck} size={1} />,
+      })
+      loadData()
+    } catch (err) {
+      showErrorMsg(err, t)
+    }
+  }
+
   return (
     <WithGameEditTab>
       <Stack gap="md">
         <Group justify="space-between" align="center">
           <Title order={3}>奖项管理</Title>
-          <Button
-            leftSection={<Icon path={mdiPlus} size={1} />}
-            onClick={() => openModal()}
-          >
+          <Button leftSection={<Icon path={mdiPlus} size={1} />} onClick={() => openModal()}>
             添加奖项
           </Button>
         </Group>
 
         <Paper shadow="sm" p="md">
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>奖项名称</Table.Th>
-                <Table.Th>描述</Table.Th>
-                <Table.Th>获奖队伍</Table.Th>
-                <Table.Th>排序</Table.Th>
-                <Table.Th>操作</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {awards.map((award) => (
-                <Table.Tr key={award.id}>
-                  <Table.Td>
-                    <Group gap="xs">
-                      <div
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: '50%',
-                          background: award.primaryColor || '#3B6DFF',
-                        }}
-                      />
-                      {award.name}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    {award.description ? (
-                      <Text size="sm" lineClamp={1}>
-                        {award.description}
-                      </Text>
-                    ) : (
-                      '-'
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    {award.teamIds && award.teamIds.length > 0
-                      ? award.teamIds.join(', ')
-                      : '-'}
-                  </Table.Td>
-                  <Table.Td>{award.sortOrder}</Table.Td>
-                  <Table.Td>
-                    <Group gap="xs">
-                      <ActionIcon
-                        variant="light"
-                        color="blue"
-                        onClick={() => openModal(award)}
-                      >
-                        <Icon path={mdiPencilOutline} size={0.8} />
-                      </ActionIcon>
-                      <ActionIcon
-                        variant="light"
-                        color="red"
-                        onClick={() => onDelete(award)}
-                      >
-                        <Icon path={mdiDeleteOutline} size={0.8} />
-                      </ActionIcon>
-                    </Group>
-                  </Table.Td>
+          <ScrollArea type="auto" offsetScrollbars>
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>奖项名称</Table.Th>
+                  <Table.Th>描述</Table.Th>
+                  <Table.Th>排序</Table.Th>
+                  <Table.Th>操作</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {awards.map((award, index) => (
+                  <Table.Tr key={award.id}>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <div
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: '50%',
+                            background: award.primaryColor || '#3B6DFF',
+                          }}
+                        />
+                        {award.name}
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      {award.description ? (
+                        <Text size="sm" lineClamp={1}>
+                          {award.description}
+                        </Text>
+                      ) : (
+                        '-'
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
+                          size="sm"
+                          onClick={() => onMoveUp(award, index)}
+                          disabled={index === 0}
+                        >
+                          <Icon path={mdiArrowUp} size={0.7} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
+                          size="sm"
+                          onClick={() => onMoveDown(award, index)}
+                          disabled={index === awards.length - 1}
+                        >
+                          <Icon path={mdiArrowDown} size={0.7} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <ActionIcon variant="light" color="blue" onClick={() => openModal(award)}>
+                          <Icon path={mdiPencilOutline} size={0.8} />
+                        </ActionIcon>
+                        <ActionIcon variant="light" color="red" onClick={() => onDelete(award)}>
+                          <Icon path={mdiDeleteOutline} size={0.8} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
 
           {awards.length === 0 && (
             <Text ta="center" c="dimmed" py="xl">
@@ -229,54 +290,14 @@ const CyctfAwards: FC = () => {
         </Paper>
       </Stack>
 
-      <Modal
-        opened={opened}
-        onClose={close}
-        title={editingAward ? '编辑奖项' : '添加奖项'}
-        size="lg"
-      >
+      <Modal opened={opened} onClose={close} title={editingAward ? '编辑奖项' : '添加奖项'} size="lg">
         <Stack gap="md">
-          <TextInput
-            label="奖项名称"
-            required
-            value={name}
-            onChange={setName}
-            placeholder="一等奖、最佳新人奖等"
-          />
-          <Textarea
-            label="描述"
-            value={description}
-            onChange={setDescription}
-            placeholder="奖项描述"
-            minRows={3}
-          />
+          <TextInput label="奖项名称" required value={name} onChange={setName} placeholder="一等奖、最佳新人奖等" />
+          <Textarea label="描述" value={description} onChange={setDescription} placeholder="奖项描述" minRows={3} />
           <Group grow>
-            <ColorInput
-              label="主颜色"
-              value={primaryColor}
-              onChange={setPrimaryColor}
-            />
-            <ColorInput
-              label="副颜色"
-              value={secondaryColor}
-              onChange={setSecondaryColor}
-            />
+            <ColorInput label="主颜色" value={primaryColor} onChange={setPrimaryColor} />
+            <ColorInput label="副颜色" value={secondaryColor} onChange={setSecondaryColor} />
           </Group>
-          <NumberInput
-            label="排序"
-            value={sortOrder}
-            onChange={(val) => setSortOrder(Number(val) || 0)}
-            min={0}
-          />
-          <MultiSelect
-            label="获奖队伍"
-            data={teams}
-            value={selectedTeams}
-            onChange={setSelectedTeams}
-            placeholder="选择获奖队伍"
-            searchable
-          />
-
           <Group justify="flex-end" gap="sm">
             <Button variant="outline" onClick={close}>
               取消

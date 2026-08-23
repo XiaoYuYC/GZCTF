@@ -82,7 +82,9 @@ internal static class ServicesExtension
             builder.Services.AddScoped<IExerciseChallengeRepository, ExerciseChallengeRepository>();
             builder.Services.AddScoped<IDivisionRepository, DivisionRepository>();
 
-            // CYCTF Extension Repositories
+            builder.Services.AddScoped<CyctfConfigStore>();
+
+            // CYCTF repositories persist through GZCTF's existing Configs table.
             builder.Services.AddScoped<IGameExtensionRepository, GameExtensionRepository>();
             builder.Services.AddScoped<IDivisionExtensionRepository, DivisionExtensionRepository>();
             builder.Services.AddScoped<ISponsorRepository, SponsorRepository>();

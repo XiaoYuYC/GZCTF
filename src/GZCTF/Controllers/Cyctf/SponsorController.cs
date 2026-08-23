@@ -2,7 +2,6 @@ using GZCTF.Middlewares;
 using GZCTF.Models.Request.Cyctf;
 using GZCTF.Models.Response.Cyctf;
 using GZCTF.Repositories.Interface;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 
@@ -67,7 +66,7 @@ public class SponsorController(
     /// <response code="200">成功创建赞助商</response>
     /// <response code="404">比赛不存在</response>
     [HttpPost]
-    [Authorize(Policy = "Admin")]
+    [RequireAdmin]
     [ProducesResponseType(typeof(SponsorResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateSponsor(int gameId, [FromBody] SponsorRequest request, CancellationToken token)
@@ -102,7 +101,7 @@ public class SponsorController(
     /// <response code="200">成功更新赞助商</response>
     /// <response code="404">赞助商不存在</response>
     [HttpPut("{id:int}")]
-    [Authorize(Policy = "Admin")]
+    [RequireAdmin]
     [ProducesResponseType(typeof(SponsorResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateSponsor(int gameId, int id, [FromBody] SponsorRequest request, CancellationToken token)
@@ -111,6 +110,8 @@ public class SponsorController(
         if (sponsor is null || sponsor.GameId != gameId)
             return NotFound(new RequestResponse("赞助商不存在", StatusCodes.Status404NotFound));
 
+        sponsor.TeamId = null;
+        sponsor.TeamName = null;
         sponsor.ShortName = request.ShortName;
         sponsor.FullName = request.FullName;
         sponsor.Website = request.Website;
@@ -132,7 +133,7 @@ public class SponsorController(
     /// <response code="200">成功删除赞助商</response>
     /// <response code="404">赞助商不存在</response>
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "Admin")]
+    [RequireAdmin]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteSponsor(int gameId, int id, CancellationToken token)
@@ -147,4 +148,6 @@ public class SponsorController(
 
         return Ok(new RequestResponse("成功删除赞助商", StatusCodes.Status200OK));
     }
+
+    // Sponsor records do not resolve or require a GZCTF team.
 }

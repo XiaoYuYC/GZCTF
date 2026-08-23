@@ -1,4 +1,6 @@
 .default {
+  flex: 0 0 auto;
+  white-space: nowrap;
   transition:
     border-color 100ms ease,
     color 100ms ease,
@@ -80,12 +82,17 @@
 
 .panes {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   gap: calc(var(--mantine-spacing-xs) / 2);
   justify-content: right;
   flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
 
   @mixin smaller-than $mantine-breakpoint-xs {
     width: 100%;
-    justify-content: space-around;
+    justify-content: flex-start;
   }
 }

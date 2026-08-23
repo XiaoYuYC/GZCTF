@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,12 +48,6 @@ public class GameExtension
     /// </summary>
     [Required]
     public int CurrentTeams { get; set; } = 0;
-
-    /// <summary>
-    /// 邮箱白名单（JSON 数组）
-    /// </summary>
-    [Column(TypeName = "text")]
-    public string? EmailWhitelist { get; set; }
 
     /// <summary>
     /// 比赛状态（DRAFT, PUBLISHED, ONGOING, ENDED）

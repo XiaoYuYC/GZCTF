@@ -13,7 +13,9 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import { IconTabs } from '@Components/IconTabs'
 import { DEFAULT_LOADING_OVERLAY } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { usePageTitle } from '@Hooks/usePageTitle'
+import classes from '@Styles/AdminLayout.module.css'
 
 export interface AdminTabProps extends React.PropsWithChildren {
   head?: React.ReactNode
@@ -26,6 +28,7 @@ export const WithAdminTab: FC<AdminTabProps> = ({ head, headProps, isLoading, ch
   const location = useLocation()
 
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   const pages = [
     { icon: mdiFlagOutline, title: t('admin.tab.games.index'), path: 'games' },
@@ -57,10 +60,10 @@ export const WithAdminTab: FC<AdminTabProps> = ({ head, headProps, isLoading, ch
     }
   }, [location])
 
-  usePageTitle(pages[tabIndex].title)
+  usePageTitle(pages[tabIndex < 0 ? 0 : tabIndex].title)
 
   return (
-    <Stack gap="xs" align="center" pt="md">
+    <Stack gap="xs" align="center" pt="md" w="100%" className={classes.root}>
       <IconTabs
         withIcon
         active={activeTab}
@@ -72,11 +75,23 @@ export const WithAdminTab: FC<AdminTabProps> = ({ head, headProps, isLoading, ch
         }))}
       />
       {head && (
-        <Group wrap="nowrap" justify="space-between" h="40px" w="100%" {...headProps}>
+        <Group
+          wrap={isMobile ? 'wrap' : 'nowrap'}
+          justify="space-between"
+          align={isMobile ? 'stretch' : 'center'}
+          h={isMobile ? 'auto' : '40px'}
+          mih={isMobile ? 0 : '40px'}
+          gap="sm"
+          w="100%"
+          className={classes.head}
+          {...headProps}
+        >
           {head}
         </Group>
       )}
-      {children}
+      <Stack w="100%" miw={0} className={classes.content}>
+        {children}
+      </Stack>
       <LoadingOverlay visible={isLoading ?? false} overlayProps={DEFAULT_LOADING_OVERLAY} />
     </Stack>
   )

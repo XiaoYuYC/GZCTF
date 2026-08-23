@@ -26,6 +26,11 @@ public class ProfileUserInfoModel
     public string? Email { get; set; }
 
     /// <summary>
+    /// Whether the email address is confirmed
+    /// </summary>
+    public bool EmailConfirmed { get; set; }
+
+    /// <summary>
     /// Bio
     /// </summary>
     public string? Bio { get; set; }
@@ -56,6 +61,7 @@ public class ProfileUserInfoModel
             UserId = user.Id,
             Bio = user.Bio,
             Email = user.Email,
+            EmailConfirmed = user.EmailConfirmed,
             UserName = user.UserName,
             RealName = user.RealName,
             Phone = user.PhoneNumber,

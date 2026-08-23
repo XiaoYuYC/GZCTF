@@ -2,7 +2,6 @@ using GZCTF.Middlewares;
 using GZCTF.Models.Request.Cyctf;
 using GZCTF.Models.Response.Cyctf;
 using GZCTF.Repositories.Interface;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 
@@ -67,7 +66,7 @@ public class AwardController(
     /// <response code="200">成功创建奖项</response>
     /// <response code="404">比赛不存在</response>
     [HttpPost]
-    [Authorize(Policy = "Admin")]
+    [RequireAdmin]
     [ProducesResponseType(typeof(AwardResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateAward(int gameId, [FromBody] AwardRequest request, CancellationToken token)
@@ -100,7 +99,7 @@ public class AwardController(
     /// <response code="200">成功更新奖项</response>
     /// <response code="404">奖项不存在</response>
     [HttpPut("{id:int}")]
-    [Authorize(Policy = "Admin")]
+    [RequireAdmin]
     [ProducesResponseType(typeof(AwardResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateAward(int gameId, int id, [FromBody] AwardRequest request, CancellationToken token)
@@ -128,7 +127,7 @@ public class AwardController(
     /// <response code="200">成功删除奖项</response>
     /// <response code="404">奖项不存在</response>
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "Admin")]
+    [RequireAdmin]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteAward(int gameId, int id, CancellationToken token)

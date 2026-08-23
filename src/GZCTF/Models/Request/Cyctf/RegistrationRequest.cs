@@ -1,9 +1,12 @@
+using System.ComponentModel.DataAnnotations;
+using GZCTF.Services;
+
 namespace GZCTF.Models.Request.Cyctf;
 
 /// <summary>
 /// 报名请求
 /// </summary>
-public class RegistrationRequest
+public class RegistrationRequest : ModelWithCaptcha
 {
     /// <summary>
     /// 比赛 ID
@@ -11,9 +14,18 @@ public class RegistrationRequest
     public int GameId { get; set; }
 
     /// <summary>
-    /// 队伍 ID
+    /// 新队伍名称
     /// </summary>
-    public int TeamId { get; set; }
+    [MaxLength(Limits.MaxTeamNameLength, ErrorMessageResourceName = nameof(Resources.Program.Model_TeamNameTooLong),
+        ErrorMessageResourceType = typeof(Resources.Program))]
+    public string? TeamName { get; set; }
+
+    /// <summary>
+    /// 新队伍简介
+    /// </summary>
+    [MaxLength(Limits.MaxTeamBioLength, ErrorMessageResourceName = nameof(Resources.Program.Model_TeamBioTooLong),
+        ErrorMessageResourceType = typeof(Resources.Program))]
+    public string? TeamBio { get; set; }
 
     /// <summary>
     /// 组别 ID
@@ -24,6 +36,24 @@ public class RegistrationRequest
     /// 报名表单数据（JSON 字符串）
     /// </summary>
     public string? FormData { get; set; }
+
+    /// <summary>
+    /// 队长邮箱（新的无需登录报名流程）
+    /// </summary>
+    [MaxLength(256)]
+    [EmailAddress]
+    public string? CaptainEmail { get; set; }
+
+    /// <summary>
+    /// 验证码（新的无需登录报名流程）
+    /// </summary>
+    [MaxLength(10)]
+    public string? VerificationCode { get; set; }
+
+    /// <summary>
+    /// 队员信息列表（新的无需登录报名流程）
+    /// </summary>
+    public List<MemberInfoRequest>? Members { get; set; }
 }
 
 /// <summary>

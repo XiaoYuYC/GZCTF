@@ -14,7 +14,6 @@ public class GameExtensionResponse
     public bool ShowRegistrationCount { get; set; }
     public bool ShowEventTime { get; set; }
     public int CurrentTeams { get; set; }
-    public string? EmailWhitelist { get; set; }
     public string? Status { get; set; }
     public DateTimeOffset CreateTime { get; set; }
     public DateTimeOffset UpdateTime { get; set; }
@@ -28,7 +27,6 @@ public class GameExtensionResponse
         ShowRegistrationCount = entity.ShowRegistrationCount,
         ShowEventTime = entity.ShowEventTime,
         CurrentTeams = entity.CurrentTeams,
-        EmailWhitelist = entity.EmailWhitelist,
         Status = entity.Status,
         CreateTime = entity.CreateTime,
         UpdateTime = entity.UpdateTime

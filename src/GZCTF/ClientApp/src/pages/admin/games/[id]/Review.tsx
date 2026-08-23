@@ -44,6 +44,7 @@ import { useParticipationStatusMap } from '@Utils/Shared'
 import { OnceSWRConfig } from '@Hooks/useConfig'
 import api, { ParticipationEditModel, ParticipationInfoModel, ParticipationStatus, ProfileUserInfoModel } from '@Api'
 import classes from '@Styles/Accordion.module.css'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 import misc from '@Styles/Misc.module.css'
 import reviewClasses from '@Styles/Review.module.css'
 
@@ -65,8 +66,8 @@ const MemberItem: FC<MemberItemProps> = (props) => {
   const { t } = useTranslation()
 
   return (
-    <Group wrap="nowrap" gap="xl" justify="space-between">
-      <Group wrap="nowrap" w="calc(100% - 16rem)" miw="500px">
+    <Group wrap="nowrap" gap="xl" justify="space-between" className={layoutClasses.mobileStackGroup}>
+      <Group wrap="nowrap" w="calc(100% - 16rem)" miw="500px" className={layoutClasses.mobileFullWidth}>
         <Avatar alt="avatar" src={user.avatar}>
           {user.userName?.slice(0, 1) ?? 'U'}
         </Avatar>
@@ -105,7 +106,7 @@ const MemberItem: FC<MemberItemProps> = (props) => {
           </Grid.Col>
         </Grid>
       </Group>
-      <Group wrap="nowrap" justify="right">
+      <Group wrap="nowrap" justify="right" className={layoutClasses.mobileFullWidth}>
         {isCaptain && (
           <Group gap={0}>
             <Icon path={mdiStar} color={theme.colors.yellow[4]} size={0.9} />
@@ -143,8 +144,8 @@ const ParticipationItem: FC<ParticipationItemProps> = (props) => {
     <Accordion.Item value={participation.id!.toString()}>
       <Box className={misc.alignCenter} display="flex">
         <Accordion.Control>
-          <Group justify="space-between" wrap="nowrap">
-            <Group wrap="nowrap" miw={0}>
+          <Group justify="space-between" wrap="nowrap" className={layoutClasses.mobileStackGroup}>
+            <Group wrap="nowrap" miw={0} className={layoutClasses.mobileFullWidth}>
               <Avatar alt="avatar" src={participation.team?.avatar}>
                 {!participation.team?.name ? 'T' : participation.team.name.slice(0, 1)}
               </Avatar>
@@ -159,7 +160,13 @@ const ParticipationItem: FC<ParticipationItemProps> = (props) => {
                 </Text>
               </Box>
             </Group>
-            <Group wrap="nowrap" justify="space-between" w="35%" miw="370px">
+            <Group
+              wrap="nowrap"
+              justify="space-between"
+              w="35%"
+              miw="370px"
+              className={`${layoutClasses.mobileFullWidth} ${layoutClasses.mobileStackGroup}`}
+            >
               <Box w="10em">
                 {hasDivisions && participation.status !== ParticipationStatus.Rejected && (
                   <Group gap={0} wrap="nowrap">
@@ -341,10 +348,10 @@ const GameTeamReview: FC = () => {
 
   return (
     <WithGameEditTab
-      headProps={{ justify: 'apart' }}
+      headProps={{ justify: 'space-between' }}
       isLoading={participations === undefined || (numId > 0 && divisions === undefined)}
       head={
-        <Group justify="space-between" wrap="nowrap" w="100%">
+        <Group justify="space-between" wrap="nowrap" w="100%" className={layoutClasses.mobileStackGroup}>
           <TextInput
             w="20rem"
             placeholder={t('admin.placeholder.teams.search')}
@@ -352,7 +359,7 @@ const GameTeamReview: FC = () => {
             onChange={setSearch}
             rightSection={<Icon path={mdiAccountGroupOutline} size={1} />}
           />
-          <Group justify="right" wrap="nowrap">
+          <Group justify="right" wrap="nowrap" className={layoutClasses.mobileStackGroup}>
             {divisionSelectOptions.length > 0 && (
               <Select
                 placeholder={t('admin.content.show_all')}

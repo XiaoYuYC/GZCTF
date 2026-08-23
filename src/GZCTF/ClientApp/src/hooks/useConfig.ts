@@ -43,6 +43,9 @@ export const useConfig = () => {
       portMapping: ContainerPortMappingType.Default,
       footerInfo: null,
       customTheme: null,
+      featuredGameId: null,
+      showHomePosts: true,
+      sidebarVisibleItems: 'home,post,game,team,about,admin',
       defaultLifetime: 120,
       extensionDuration: 120,
       renewalWindow: 10,
@@ -76,7 +79,8 @@ export const ValidatedRepoMeta = () => {
 
   const tag = rawTag.replace(/-.*$/, '')
 
-  const valid = timestamp.length === 20 &&
+  const valid =
+    timestamp.length === 20 &&
     buildtime.isValid() &&
     /^[0-9a-f]{40}$/i.test(sha) &&
     (/^v\d+\.\d+\.\d+$/i.test(tag) || tag === 'develop')

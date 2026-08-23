@@ -16,15 +16,16 @@ import { Icon } from '@mdi/react'
 import { FC, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { showErrorMsg } from '@Utils/Shared'
-import api, { TeamUpdateModel } from '@Api'
+import api, { TeamInfoModel, TeamUpdateModel } from '@Api'
 
 interface TeamEditModalProps extends ModalProps {
   disallowCreate: boolean
   mutate: () => void
+  onCreated?: (team: TeamInfoModel) => void
 }
 
 export const TeamCreateModal: FC<TeamEditModalProps> = (props) => {
-  const { disallowCreate, mutate, ...modalProps } = props
+  const { disallowCreate, mutate, onCreated, ...modalProps } = props
   const [createTeam, setCreateTeam] = useState<TeamUpdateModel>({ name: '', bio: '' })
   const [disabled, setDisabled] = useState(false)
   const theme = useMantineTheme()
@@ -43,6 +44,7 @@ export const TeamCreateModal: FC<TeamEditModalProps> = (props) => {
         icon: <Icon path={mdiCheck} size={1} />,
       })
       setCreateTeam({ name: '', bio: '' })
+      onCreated?.(res.data)
       mutate()
       modalProps.onClose()
     } catch (e) {

@@ -9,6 +9,7 @@ import { FC, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { showErrorMsg } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import api, { GameInfoModel } from '@Api'
 
 interface GameCreateModalProps extends ModalProps {
@@ -24,6 +25,7 @@ export const GameCreateModal: FC<GameCreateModalProps> = (props) => {
   const [end, setEnd] = useInputState(dayjs().add(2, 'h'))
 
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   const onCreate = async () => {
     if (!title || end < start) {
@@ -58,7 +60,11 @@ export const GameCreateModal: FC<GameCreateModalProps> = (props) => {
   }
 
   return (
-    <Modal size="30%" title={t('admin.button.games.new')} {...modalProps}>
+    <Modal
+      {...modalProps}
+      size={isMobile ? 'calc(100vw - 2rem)' : (modalProps.size ?? '30%')}
+      title={t('admin.button.games.new')}
+    >
       <Stack>
         <TextInput
           label={t('admin.content.games.info.title.label')}
@@ -71,6 +77,7 @@ export const GameCreateModal: FC<GameCreateModalProps> = (props) => {
         <DateTimePicker
           label={t('admin.content.games.info.start_time')}
           size="sm"
+          dropdownType={isMobile ? 'modal' : 'popover'}
           value={start.toDate()}
           valueFormat="L LT"
           clearable={false}
@@ -86,6 +93,7 @@ export const GameCreateModal: FC<GameCreateModalProps> = (props) => {
         <DateTimePicker
           label={t('admin.content.games.info.end_time')}
           size="sm"
+          dropdownType={isMobile ? 'modal' : 'popover'}
           minDate={start.toDate()}
           valueFormat="L LT"
           value={end.toDate()}

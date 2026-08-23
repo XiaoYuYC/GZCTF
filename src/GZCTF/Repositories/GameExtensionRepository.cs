@@ -1,71 +1,64 @@
 using GZCTF.Models.Data.Cyctf;
 using GZCTF.Repositories.Interface;
-using Microsoft.EntityFrameworkCore;
 
 namespace GZCTF.Repositories;
 
-public class GameExtensionRepository(AppDbContext context) : RepositoryBase(context), IGameExtensionRepository
+public class GameExtensionRepository(AppDbContext context, CyctfConfigStore store) :
+    RepositoryBase(context), IGameExtensionRepository
 {
-    public Task<GameExtension?> GetGameExtensionByGameId(int gameId, CancellationToken token = default)
-        => Context.GameExtensions
-            .Include(e => e.Sponsors.Where(s => !s.Deleted))
-            .Include(e => e.Awards.Where(a => !a.Deleted))
-            .FirstOrDefaultAsync(e => e.GameId == gameId && !e.Deleted, token);
+    private static string Key(int gameId) => $"CYCTF:GameExtension:{gameId}";
 
-    public async Task<GameExtension> CreateOrUpdateGameExtension(GameExtension extension, CancellationToken token = default)
+    public async Task<GameExtension?> GetGameExtensionByGameId(int gameId, CancellationToken token = default)
     {
-        var existing = await Context.GameExtensions
-            .FirstOrDefaultAsync(e => e.GameId == extension.GameId, token);
+        var extension = await store.Get<GameExtension>(Key(gameId), token);
+        return extension is null || extension.Deleted ? null : extension;
+    }
 
+    public async Task<GameExtension> CreateOrUpdateGameExtension(GameExtension extension,
+        CancellationToken token = default)
+    {
+        var existing = await store.Get<GameExtension>(Key(extension.GameId), token);
+        var now = DateTimeOffset.UtcNow;
         if (existing is null)
         {
-            extension.CreateTime = DateTimeOffset.UtcNow;
-            extension.UpdateTime = DateTimeOffset.UtcNow;
-            await Context.GameExtensions.AddAsync(extension, token);
+            extension.CreateTime = now;
+            extension.CurrentTeams = 0;
         }
         else
         {
-            existing.RegistrationStartTime = extension.RegistrationStartTime;
-            existing.RegistrationEndTime = extension.RegistrationEndTime;
-            existing.MaxTeams = extension.MaxTeams;
-            existing.ShowRegistrationCount = extension.ShowRegistrationCount;
-            existing.ShowEventTime = extension.ShowEventTime;
-            existing.EmailWhitelist = extension.EmailWhitelist;
-            existing.Status = extension.Status;
-            existing.UpdateTime = DateTimeOffset.UtcNow;
+            extension.CreateTime = existing.CreateTime;
+            extension.CurrentTeams = existing.CurrentTeams;
         }
 
-        await SaveAsync(token);
-        return existing ?? extension;
+        extension.Deleted = false;
+        extension.UpdateTime = now;
+        await store.Set(Key(extension.GameId), extension, token);
+        return extension;
     }
 
     public async Task<bool> DeleteGameExtension(int gameId, CancellationToken token = default)
     {
-        var extension = await Context.GameExtensions
-            .FirstOrDefaultAsync(e => e.GameId == gameId, token);
-
+        var extension = await store.Get<GameExtension>(Key(gameId), token);
         if (extension is null)
             return false;
 
         extension.Deleted = true;
         extension.UpdateTime = DateTimeOffset.UtcNow;
-        await SaveAsync(token);
+        await store.Set(Key(gameId), extension, token);
         return true;
     }
 
-    public Task<bool> HasGameExtension(int gameId, CancellationToken token = default)
-        => Context.GameExtensions.AnyAsync(e => e.GameId == gameId && !e.Deleted, token);
+    public async Task<bool> HasGameExtension(int gameId, CancellationToken token = default) =>
+        await GetGameExtensionByGameId(gameId, token) is not null;
 
     public async Task UpdateCurrentTeams(int gameId, int count, CancellationToken token = default)
     {
-        var extension = await Context.GameExtensions
-            .FirstOrDefaultAsync(e => e.GameId == gameId, token);
+        var extension = await store.Get<GameExtension>(Key(gameId), token);
+        if (extension is null)
+            return;
 
-        if (extension is not null)
-        {
-            extension.CurrentTeams = count;
-            extension.UpdateTime = DateTimeOffset.UtcNow;
-            await SaveAsync(token);
-        }
+        extension.CurrentTeams = Math.Max(0, count);
+        extension.UpdateTime = DateTimeOffset.UtcNow;
+        await store.Set(Key(gameId), extension, token);
     }
 }

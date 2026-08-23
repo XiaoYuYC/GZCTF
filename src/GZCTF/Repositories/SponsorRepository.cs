@@ -1,60 +1,61 @@
 using GZCTF.Models.Data.Cyctf;
 using GZCTF.Repositories.Interface;
-using Microsoft.EntityFrameworkCore;
 
 namespace GZCTF.Repositories;
 
-public class SponsorRepository(AppDbContext context) : RepositoryBase(context), ISponsorRepository
+public class SponsorRepository(AppDbContext context, CyctfConfigStore store) :
+    RepositoryBase(context), ISponsorRepository
 {
-    public Task<List<Sponsor>> GetSponsorsByGameId(int gameId, CancellationToken token = default)
-        => Context.Sponsors
-            .Where(s => s.GameId == gameId && !s.Deleted)
-            .OrderBy(s => s.SortOrder)
-            .ThenBy(s => s.Id)
-            .ToListAsync(token);
+    private const string RootPrefix = "CYCTF:Sponsor:";
+    private static string GamePrefix(int gameId) => $"{RootPrefix}{gameId}:";
+    private static string Key(int gameId, int id) => $"{GamePrefix(gameId)}{id}";
 
-    public Task<Sponsor?> GetSponsorById(int id, CancellationToken token = default)
-        => Context.Sponsors.FirstOrDefaultAsync(s => s.Id == id && !s.Deleted, token);
+    public async Task<List<Sponsor>> GetSponsorsByGameId(int gameId, CancellationToken token = default) =>
+        (await store.GetByPrefix<Sponsor>(GamePrefix(gameId), token))
+        .Select(item => item.Value)
+        .Where(item => !item.Deleted)
+        .OrderBy(item => item.SortOrder)
+        .ThenBy(item => item.Id)
+        .ToList();
+
+    public async Task<Sponsor?> GetSponsorById(int id, CancellationToken token = default) =>
+        (await store.GetByPrefix<Sponsor>(RootPrefix, token))
+        .Select(item => item.Value)
+        .FirstOrDefault(item => item.Id == id && !item.Deleted);
 
     public async Task<Sponsor> CreateSponsor(Sponsor sponsor, CancellationToken token = default)
     {
+        sponsor.Id = await store.NextId(RootPrefix, token);
         sponsor.CreateTime = DateTimeOffset.UtcNow;
-        sponsor.UpdateTime = DateTimeOffset.UtcNow;
-        await Context.Sponsors.AddAsync(sponsor, token);
-        await SaveAsync(token);
+        sponsor.UpdateTime = sponsor.CreateTime;
+        sponsor.Deleted = false;
+        await store.Set(Key(sponsor.GameId, sponsor.Id), sponsor, token);
         return sponsor;
     }
 
     public async Task<Sponsor?> UpdateSponsor(Sponsor sponsor, CancellationToken token = default)
     {
-        var existing = await Context.Sponsors.FirstOrDefaultAsync(s => s.Id == sponsor.Id, token);
-
+        var existing = await GetSponsorById(sponsor.Id, token);
         if (existing is null)
             return null;
 
-        existing.ShortName = sponsor.ShortName;
-        existing.FullName = sponsor.FullName;
-        existing.Website = sponsor.Website;
-        existing.LogoUrl = sponsor.LogoUrl;
-        existing.Type = sponsor.Type;
-        existing.TypeLabel = sponsor.TypeLabel;
-        existing.SortOrder = sponsor.SortOrder;
-        existing.UpdateTime = DateTimeOffset.UtcNow;
-
-        await SaveAsync(token);
-        return existing;
+        sponsor.GameId = existing.GameId;
+        sponsor.CreateTime = existing.CreateTime;
+        sponsor.UpdateTime = DateTimeOffset.UtcNow;
+        sponsor.Deleted = false;
+        await store.Set(Key(sponsor.GameId, sponsor.Id), sponsor, token);
+        return sponsor;
     }
 
     public async Task<bool> DeleteSponsor(int id, CancellationToken token = default)
     {
-        var sponsor = await Context.Sponsors.FirstOrDefaultAsync(s => s.Id == id, token);
-
+        var sponsor = await GetSponsorById(id, token);
         if (sponsor is null)
             return false;
 
         sponsor.Deleted = true;
         sponsor.UpdateTime = DateTimeOffset.UtcNow;
-        await SaveAsync(token);
+        await store.Set(Key(sponsor.GameId, sponsor.Id), sponsor, token);
         return true;
     }
 }

@@ -3,6 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { BloodBonus } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { OnceSWRConfig } from '@Hooks/useConfig'
 import api, { SubmissionType } from '@Api'
 
@@ -24,6 +25,7 @@ export const BloodBonusModel: FC<ModalProps> = (props) => {
   const [thirdBloodBonus, setThirdBloodBonus] = useState(0)
 
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (gameSource) {
@@ -51,7 +53,7 @@ export const BloodBonusModel: FC<ModalProps> = (props) => {
   }
 
   return (
-    <Modal {...props}>
+    <Modal {...props} size={isMobile ? 'calc(100vw - 2rem)' : props.size}>
       <Stack>
         <Text>{t('admin.content.games.challenges.bonus.description')}</Text>
         <NumberInput

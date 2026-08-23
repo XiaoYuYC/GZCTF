@@ -4,56 +4,64 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GZCTF.Repositories;
 
-public class DivisionExtensionRepository(AppDbContext context) : RepositoryBase(context), IDivisionExtensionRepository
+public class DivisionExtensionRepository(AppDbContext context, CyctfConfigStore store) :
+    RepositoryBase(context), IDivisionExtensionRepository
 {
-    public Task<DivisionExtension?> GetDivisionExtensionByDivisionId(int divisionId, CancellationToken token = default)
-        => Context.DivisionExtensions
-            .Include(e => e.Division)
-            .FirstOrDefaultAsync(e => e.DivisionId == divisionId && !e.Deleted, token);
+    private static string Key(int divisionId) => $"CYCTF:DivisionExtension:{divisionId}";
 
-    public async Task<DivisionExtension> CreateOrUpdateDivisionExtension(DivisionExtension extension, CancellationToken token = default)
+    public async Task<DivisionExtension?> GetDivisionExtensionByDivisionId(int divisionId,
+        CancellationToken token = default)
     {
-        var existing = await Context.DivisionExtensions
-            .FirstOrDefaultAsync(e => e.DivisionId == extension.DivisionId, token);
+        var extension = await store.Get<DivisionExtension>(Key(divisionId), token);
+        if (extension is null || extension.Deleted)
+            return null;
 
-        if (existing is null)
-        {
-            extension.CreateTime = DateTimeOffset.UtcNow;
-            extension.UpdateTime = DateTimeOffset.UtcNow;
-            await Context.DivisionExtensions.AddAsync(extension, token);
-        }
-        else
-        {
-            existing.MinTeamSize = extension.MinTeamSize;
-            existing.MaxTeamSize = extension.MaxTeamSize;
-            existing.RegistrationFields = extension.RegistrationFields;
-            existing.UpdateTime = DateTimeOffset.UtcNow;
-        }
+        extension.Division = await Context.Divisions.FirstOrDefaultAsync(d => d.Id == divisionId, token) ?? null!;
+        return extension.Division is null ? null : extension;
+    }
 
-        await SaveAsync(token);
-        return existing ?? extension;
+    public async Task<DivisionExtension> CreateOrUpdateDivisionExtension(DivisionExtension extension,
+        CancellationToken token = default)
+    {
+        var existing = await store.Get<DivisionExtension>(Key(extension.DivisionId), token);
+        var now = DateTimeOffset.UtcNow;
+        extension.CreateTime = existing?.CreateTime ?? now;
+        extension.UpdateTime = now;
+        extension.Deleted = false;
+        await store.Set(Key(extension.DivisionId), extension, token);
+        return extension;
     }
 
     public async Task<bool> DeleteDivisionExtension(int divisionId, CancellationToken token = default)
     {
-        var extension = await Context.DivisionExtensions
-            .FirstOrDefaultAsync(e => e.DivisionId == divisionId, token);
-
+        var extension = await store.Get<DivisionExtension>(Key(divisionId), token);
         if (extension is null)
             return false;
 
         extension.Deleted = true;
         extension.UpdateTime = DateTimeOffset.UtcNow;
-        await SaveAsync(token);
+        await store.Set(Key(divisionId), extension, token);
         return true;
     }
 
-    public Task<bool> HasDivisionExtension(int divisionId, CancellationToken token = default)
-        => Context.DivisionExtensions.AnyAsync(e => e.DivisionId == divisionId && !e.Deleted, token);
+    public async Task<bool> HasDivisionExtension(int divisionId, CancellationToken token = default) =>
+        await GetDivisionExtensionByDivisionId(divisionId, token) is not null;
 
-    public Task<List<DivisionExtension>> GetDivisionExtensionsByGameId(int gameId, CancellationToken token = default)
-        => Context.DivisionExtensions
-            .Include(e => e.Division)
-            .Where(e => e.Division.GameId == gameId && !e.Deleted)
+    public async Task<List<DivisionExtension>> GetDivisionExtensionsByGameId(int gameId,
+        CancellationToken token = default)
+    {
+        var divisionIds = await Context.Divisions
+            .Where(d => d.GameId == gameId)
+            .Select(d => d.Id)
             .ToListAsync(token);
+        var result = new List<DivisionExtension>();
+        foreach (var divisionId in divisionIds)
+        {
+            var extension = await GetDivisionExtensionByDivisionId(divisionId, token);
+            if (extension is not null)
+                result.Add(extension);
+        }
+
+        return result;
+    }
 }

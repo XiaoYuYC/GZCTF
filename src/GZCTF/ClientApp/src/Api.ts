@@ -338,6 +338,8 @@ export interface ProfileUserInfoModel {
   userName?: string | null;
   /** Email */
   email?: string | null;
+  /** Whether the email address is confirmed */
+  emailConfirmed?: boolean;
   /** Bio */
   bio?: string | null;
   /** Phone number */
@@ -386,6 +388,12 @@ export interface GlobalConfig {
   footerInfo?: string | null;
   /** Custom theme color */
   customTheme?: string | null;
+  /** Game displayed on the homepage */
+  featuredGameId?: number | null;
+  /** Whether to display posts on the homepage */
+  showHomePosts?: boolean;
+  /** Comma-separated sidebar navigation item identifiers visible to users */
+  sidebarVisibleItems?: string;
   /** Use asymmetric encryption for API requests */
   apiEncryption?: boolean;
   /** Platform logo hash */
@@ -2087,6 +2095,12 @@ export interface ClientConfig {
   footerInfo?: string | null;
   /** Custom theme color */
   customTheme?: string | null;
+  /** Game displayed on the homepage */
+  featuredGameId?: number | null;
+  /** Whether to display posts on the homepage */
+  showHomePosts?: boolean;
+  /** Comma-separated sidebar navigation item identifiers visible to users */
+  sidebarVisibleItems?: string;
   /** The public key used for API requests */
   apiPublicKey?: string | null;
   /** Platform logo URL */
@@ -2248,7 +2262,6 @@ export interface GameExtensionResponse {
   showEventTime?: boolean;
   /** @format int32 */
   currentTeams?: number;
-  emailWhitelist?: string | null;
   status?: string | null;
   /** @format uint64 */
   createTime?: number;
@@ -2277,8 +2290,6 @@ export interface GameExtensionRequest {
   showRegistrationCount?: boolean;
   /** 是否显示比赛时间 */
   showEventTime?: boolean;
-  /** 邮箱白名单（JSON 数组字符串） */
-  emailWhitelist?: string | null;
   /** 比赛状态 */
   status?: string | null;
 }
@@ -2290,13 +2301,15 @@ export interface RegistrationResponse {
   /** @format int32 */
   gameId?: number;
   /** @format int32 */
-  teamId?: number;
+  teamId?: number | null;
   teamName?: string | null;
+  captainEmail?: string | null;
   /** @format int32 */
   divisionId?: number;
   divisionName?: string | null;
   status?: string;
   formData?: string | null;
+  confirmationToken?: string | null;
   reviewNote?: string | null;
   reviewedBy?: string | null;
   /** @format uint64 */
@@ -2305,6 +2318,8 @@ export interface RegistrationResponse {
   createTime?: number;
   /** @format uint64 */
   updateTime?: number;
+  /** 是否全部成员接受邀请 */
+  allMembersAccepted?: boolean;
 }
 
 /** 报名请求 */
@@ -2314,11 +2329,10 @@ export interface RegistrationRequest {
    * @format int32
    */
   gameId?: number;
-  /**
-   * 队伍 ID
-   * @format int32
-   */
-  teamId?: number;
+  /** 新队伍名称 */
+  teamName?: string | null;
+  /** 新队伍简介 */
+  teamBio?: string | null;
   /**
    * 组别 ID
    * @format int32
@@ -2326,6 +2340,22 @@ export interface RegistrationRequest {
   divisionId?: number;
   /** 报名表单数据（JSON 字符串） */
   formData?: string | null;
+  /** 队长邮箱（无需登录报名使用） */
+  captainEmail?: string | null;
+  /** 验证码（无需登录报名使用） */
+  verificationCode?: string | null;
+  /** 队员信息列表（无需登录报名使用） */
+  members?: MemberInfoRequest[] | null;
+  /** 人机验证结果 */
+  challenge?: string | null;
+}
+
+/** 队员信息请求 */
+export interface MemberInfoRequest {
+  /** 队员邮箱 */
+  email?: string;
+  /** 队员字段数据（JSON 字符串） */
+  memberFields?: string | null;
 }
 
 /** 审核报名请求 */
@@ -2342,6 +2372,9 @@ export interface SponsorResponse {
   id?: number;
   /** @format int32 */
   gameId?: number;
+  /** @format int32 */
+  teamId?: number | null;
+  teamName?: string | null;
   shortName?: string;
   fullName?: string | null;
   website?: string | null;
@@ -2370,11 +2403,81 @@ export interface SponsorRequest {
   type?: string;
   /** 类型标签 */
   typeLabel?: string | null;
+  /** @format int32 */
+  sortOrder?: number;
+}
+
+/** 发送验证码请求 */
+export interface SendVerificationCodeRequest {
+  /** 邮箱地址 */
+  email: string;
+  /** 验证码用途 */
+  purpose?: string | null;
   /**
-   * 排序顺序
+   * 比赛 ID（可选）
    * @format int32
    */
-  sortOrder?: number;
+  gameId?: number | null;
+  /** 人机验证结果 */
+  challenge?: string | null;
+}
+
+/** 队长查询报名请求 */
+export interface RegistrationQueryRequest {
+  gameId: number;
+  email: string;
+  verificationCode: string;
+}
+
+/** 队长取消报名请求 */
+export interface RegistrationCaptainCancelRequest {
+  accessToken: string;
+}
+
+/** 队长查询报名成员 */
+export interface RegistrationMemberResponse {
+  email?: string;
+  status?: string;
+  /** @format uint64 */
+  sentAt?: number;
+  /** @format uint64 */
+  respondedAt?: number | null;
+}
+
+/** 队长查询报名响应 */
+export interface RegistrationQueryResponse {
+  id?: number;
+  gameId?: number;
+  gameTitle?: string | null;
+  teamName?: string | null;
+  captainEmail?: string | null;
+  divisionName?: string | null;
+  status?: string;
+  reviewNote?: string | null;
+  /** @format uint64 */
+  createTime?: number;
+  /** @format uint64 */
+  reviewedAt?: number | null;
+  accessToken?: string | null;
+  members?: RegistrationMemberResponse[];
+}
+
+/** 邀请详情响应 */
+export interface InvitationDetailResponse {
+  /** 邀请令牌 */
+  token?: string | null;
+  /** 队员邮箱 */
+  email?: string | null;
+  /** 邀请状态 */
+  status?: string | null;
+  /** 比赛标题 */
+  gameTitle?: string | null;
+  /** 队伍名称 */
+  teamName?: string | null;
+  /** 队长邮箱 */
+  captainEmail?: string | null;
+  /** 分组名称 */
+  divisionName?: string | null;
 }
 
 import { apiLanguage } from "@Utils/I18n";
@@ -2408,7 +2511,9 @@ export interface FullRequestParams
 export type RequestParams = Omit<
   FullRequestParams,
   "body" | "method" | "query" | "path"
->;
+> & {
+  query?: QueryParamsType;
+};
 
 export interface ApiConfig<SecurityDataType = unknown>
   extends Omit<AxiosRequestConfig, "data" | "cancelToken"> {
@@ -7062,15 +7167,61 @@ export class Api<
      */
     registrationGetGameRegistrations: (
       gameId: number,
+      status?: string,
+      allMembersAccepted?: boolean,
       params: RequestParams = {},
     ) =>
       this.request<RegistrationResponse[], RequestResponse>({
         path: `/api/cyctf/registrations/games/${gameId}`,
         method: "GET",
+        query: { status, allMembersAccepted, ...params.query },
         format: "json",
         ...params,
       }),
+
     /**
+     * 当前用户作为队长的有效报名
+     * @request GET:/api/cyctf/registrations/games/{gameId}/mine
+     */
+    registrationGetMyRegistration: (
+      gameId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/games/${gameId}/mine`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+    registrationQueryRegistration: (
+      data: RegistrationQueryRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationQueryResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/query`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    registrationCaptainCancelRegistration: (
+      id: number,
+      data: RegistrationCaptainCancelRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationQueryResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/captain-cancel`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @tags Registration
      * No description
      *
      * @tags Registration
@@ -7244,11 +7395,7 @@ export class Api<
       }),
 
     /**
-     * No description
-     *
-     * @tags Registration
-     * @name RegistrationReviewRegistration
-     * @summary 审核报名（管理员）
+     * 审核报名（管理员）
      * @request POST:/api/cyctf/registrations/{id}/review
      */
     registrationReviewRegistration: (
@@ -7264,7 +7411,51 @@ export class Api<
         format: "json",
         ...params,
       }),
+
+    /**
+     * 导出报名 CSV
+     * @request GET:/api/cyctf/registrations/export
+     */
+    registrationExport: (params: RequestParams = {}) =>
+      this.request<Blob, RequestResponse>({
+        path: `/api/cyctf/registrations/export`,
+        method: "GET",
+        query: params.query,
+        format: "blob",
+        ...params,
+      }),
+
+    /**
+     * 取消报名（管理员）
+     * @request POST:/api/cyctf/registrations/{id}/cancel
+     */
+    registrationCancelRegistration: (
+      id: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/cancel`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * 删除报名（管理员）
+     * @request DELETE:/api/cyctf/registrations/{id}
+     */
+    registrationDeleteRegistration: (
+      id: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}`,
+        method: "DELETE",
+        format: "json",
+        ...params,
+      }),
   };
+
   sponsor = {
     /**
      * No description
@@ -7437,6 +7628,77 @@ export class Api<
         method: "PUT",
         body: data,
         type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+  };
+  verification = {
+    /**
+     * No description
+     *
+     * @tags Verification
+     * @name VerificationSendVerificationCode
+     * @summary 发送验证码
+     * @request POST:/api/cyctf/verification/send
+     */
+    verificationSendVerificationCode: (
+      data: SendVerificationCodeRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/verification/send`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+  };
+  invitation = {
+    /**
+     * No description
+     *
+     * @tags Invitation
+     * @name InvitationGetInvitationDetail
+     * @summary 获取邀请详情
+     * @request GET:/api/cyctf/invitations/{token}
+     */
+    invitationGetInvitationDetail: (token: string, params: RequestParams = {}) =>
+      this.request<InvitationDetailResponse, RequestResponse>({
+        path: `/api/cyctf/invitations/${token}`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Invitation
+     * @name InvitationAcceptInvitation
+     * @summary 接受邀请
+     * @request POST:/api/cyctf/invitations/{token}/accept
+     */
+    invitationAcceptInvitation: (token: string, params: RequestParams = {}) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/invitations/${token}/accept`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Invitation
+     * @name InvitationRejectInvitation
+     * @summary 拒绝邀请
+     * @request POST:/api/cyctf/invitations/{token}/reject
+     */
+    invitationRejectInvitation: (token: string, params: RequestParams = {}) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/invitations/${token}/reject`,
+        method: "POST",
         format: "json",
         ...params,
       }),

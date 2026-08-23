@@ -14,6 +14,7 @@ import {
   useChallengeCategoryLabelMap,
   useChallengeTypeLabelMap,
 } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import api, { ChallengeInfoModel, ChallengeCategory, ChallengeType } from '@Api'
 
 interface ChallengeCreateModalProps extends ModalProps {
@@ -33,6 +34,7 @@ export const ChallengeCreateModal: FC<ChallengeCreateModalProps> = (props) => {
   const [type, setType] = useState<string | null>(null)
 
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   const onCreate = async () => {
     if (!title || !category || !type) return
@@ -61,7 +63,7 @@ export const ChallengeCreateModal: FC<ChallengeCreateModalProps> = (props) => {
   }
 
   return (
-    <Modal {...modalProps}>
+    <Modal {...modalProps} size={isMobile ? 'calc(100vw - 2rem)' : modalProps.size}>
       <Stack>
         <TextInput
           label={t('admin.content.games.challenges.title')}

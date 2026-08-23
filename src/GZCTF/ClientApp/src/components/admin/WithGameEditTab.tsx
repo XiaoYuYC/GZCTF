@@ -4,7 +4,6 @@ import {
   mdiAccountMultipleCheckOutline,
   mdiTrophyOutline,
   mdiBullhornOutline,
-  mdiCogOutline,
   mdiFileDocumentCheckOutline,
   mdiFlagOutline,
   mdiKeyboardBackspace,
@@ -18,6 +17,8 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, Link, useNavigate, useParams } from 'react-router'
 import { AdminPage } from '@Components/admin/AdminPage'
 import { DEFAULT_LOADING_OVERLAY } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
+import classes from '@Styles/AdminLayout.module.css'
 import misc from '@Styles/Misc.module.css'
 
 export interface GameEditTabProps extends React.PropsWithChildren {
@@ -40,6 +41,7 @@ export const WithGameEditTab: FC<GameEditTabProps> = ({
   const location = useLocation()
   const { id } = useParams()
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   const pages = [
     { icon: mdiTextBoxOutline, title: t('admin.tab.games.info'), path: 'info' },
@@ -48,11 +50,9 @@ export const WithGameEditTab: FC<GameEditTabProps> = ({
     { icon: mdiTagOutline, title: t('admin.tab.games.divisions'), path: 'divisions' },
     { icon: mdiAccountGroupOutline, title: t('admin.tab.games.review'), path: 'review' },
     { icon: mdiFileDocumentCheckOutline, title: t('admin.tab.games.writeups'), path: 'writeups' },
-    { icon: mdiCogOutline, title: 'CYCTF 配置', path: 'cyctfextension' },
     { icon: mdiAccountMultipleCheckOutline, title: '报名管理', path: 'cyctfregistrations' },
     { icon: mdiOfficeBuilding, title: '赞助商', path: 'cyctfsponsors' },
     { icon: mdiTrophyOutline, title: '奖项', path: 'cyctfawards' },
-    { icon: mdiTagOutline, title: '组别配置', path: 'cyctfdivisions' },
   ]
 
   const getTab = (path: string) => pages.find((page) => path.includes(page.path))
@@ -74,7 +74,7 @@ export const WithGameEditTab: FC<GameEditTabProps> = ({
       head={
         <>
           <Button
-            w="10rem"
+            w={isMobile ? '100%' : '10rem'}
             component={Link}
             classNames={{ inner: misc.justifyBetween }}
             leftSection={<Icon path={mdiKeyboardBackspace} size={1} />}
@@ -82,31 +82,52 @@ export const WithGameEditTab: FC<GameEditTabProps> = ({
           >
             {t('admin.button.back')}
           </Button>
-          <Group wrap="nowrap" justify={contentPos ?? 'space-between'} w="calc(100% - 11rem)">
+          <Group
+            wrap={isMobile ? 'wrap' : 'nowrap'}
+            justify={isMobile ? 'flex-start' : (contentPos ?? 'space-between')}
+            w={isMobile ? '100%' : 'calc(100% - 11rem)'}
+            miw={0}
+            className={classes.head}
+          >
             {head}
           </Group>
         </>
       }
     >
-      <Group wrap="nowrap" justify="space-between" align="flex-start" w="100%" pb="xl">
+      <Group
+        wrap={isMobile ? 'wrap' : 'nowrap'}
+        gap="md"
+        justify="space-between"
+        align="flex-start"
+        w="100%"
+        miw={0}
+        pb="xl"
+      >
         <Tabs
-          orientation="vertical"
+          orientation={isMobile ? 'horizontal' : 'vertical'}
           value={activeTab}
           onChange={(value) => value && navigate(`/admin/games/${id}/${value}`)}
+          w={isMobile ? '100%' : '10rem'}
+          className={classes.editTabs}
           classNames={{
-            root: misc.w10rem,
-            list: misc.w10rem,
+            root: isMobile ? undefined : misc.w10rem,
+            list: isMobile ? classes.editTabList : misc.w10rem,
           }}
         >
           <Tabs.List>
             {pages.map((page) => (
-              <Tabs.Tab key={page.path} leftSection={<Icon path={page.icon} size={1} />} value={page.path}>
+              <Tabs.Tab
+                key={page.path}
+                leftSection={<Icon path={page.icon} size={1} />}
+                value={page.path}
+                className={isMobile ? classes.editTab : undefined}
+              >
                 {page.title}
               </Tabs.Tab>
             ))}
           </Tabs.List>
         </Tabs>
-        <Stack w="calc(100% - 11rem)" pos="relative">
+        <Stack w={isMobile ? '100%' : 'calc(100% - 11rem)'} miw={0} pos="relative" className={classes.content}>
           <LoadingOverlay visible={isLoading ?? false} overlayProps={DEFAULT_LOADING_OVERLAY} />
           {children}
         </Stack>

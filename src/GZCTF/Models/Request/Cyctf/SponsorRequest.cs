@@ -26,9 +26,9 @@ public class SponsorRequest
     public string? LogoUrl { get; set; }
 
     /// <summary>
-    /// 赞助商类型
+    /// 赞助商类型（ORGANIZER, UNDERTAKER, CO_ORGANIZER, SPECIAL_THANKS 或自定义值）
     /// </summary>
-    public string Type { get; set; } = "SPONSOR";
+    public string Type { get; set; } = "ORGANIZER";
 
     /// <summary>
     /// 类型标签

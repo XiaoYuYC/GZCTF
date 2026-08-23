@@ -88,7 +88,27 @@ public sealed class MailSender : IMailSender, IDisposable
         GC.SuppressFinalize(this);
     }
 
+    public bool EnqueueMailContent(MailContent content)
+    {
+        if (_smtpClient is null)
+        {
+            _logger.LogWarning("SMTP is not configured; dropping mail for {Email}.", content.Email);
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(content.Email))
+        {
+            _logger.LogWarning("Skipped mail with an empty recipient.");
+            return false;
+        }
+
+        _mailQueue.Enqueue(content);
+        _resetEvent.Set();
+        return true;
+    }
+
     public async Task SendMailContent(MailContent content)
+
     {
         // TODO: use GlobalConfig.DefaultEmailTemplate
         // TODO: use a string formatter library
@@ -208,10 +228,7 @@ public sealed class MailSender : IMailSender, IDisposable
 
         var content = new MailContent(userName, email, resetLink, type, localizer, options);
 
-        _mailQueue.Enqueue(content);
-        _resetEvent.Set();
-
-        return true;
+        return EnqueueMailContent(content);
     }
 
     private bool TestSmtpClient(CancellationToken token = default)
@@ -254,75 +271,71 @@ public enum MailType
 /// <summary>
 /// 邮件内容
 /// </summary>
-public class MailContent(
-    string userName,
-    string email,
-    string resetLink,
-    MailType type,
-    // DO NOT use IStringLocalizer<Program> after construction
-    IStringLocalizer<Program> localizer,
-    IOptionsSnapshot<GlobalConfig> globalConfig)
+public class MailContent
 {
-    /// <summary>
-    /// 邮件模板
-    /// </summary>
-    public string Template { get; } = localizer[nameof(Resources.Program.MailSender_Template)];
+    private const string NotificationTemplate =
+        "<head><meta content=\"text/html; charset=utf-8\" http-equiv=\"Content-Type\"/></head>" +
+        "<body><div style=\"max-width: 544px; margin: 0 auto; padding: 20px\">" +
+        "<h2 style=\"text-align: center\">{title}</h2>" +
+        "<p>你好！</p>" +
+        "<div>{information}</div>" +
+        "<p style=\"font-size: 0.7em; text-align: right; color: #333\">{platform} @ {nowtime}</p>" +
+        "</div></body>";
 
-    /// <summary>
-    /// 邮件标题
-    /// </summary>
-    public string Title { get; } = type switch
+    public MailContent(string userName, string email, string resetLink, MailType type,
+        // DO NOT use IStringLocalizer<Program> after construction
+        IStringLocalizer<Program> localizer, IOptionsSnapshot<GlobalConfig> globalConfig)
     {
-        MailType.ConfirmEmail => localizer[nameof(Resources.Program.MailSender_VerifyEmailTitle)],
-        MailType.ChangeEmail => localizer[nameof(Resources.Program.MailSender_ChangeEmailTitle)],
-        MailType.ResetPassword => localizer[nameof(Resources.Program.MailSender_ResetPasswordTitle)],
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
-    };
+        Template = localizer[nameof(Resources.Program.MailSender_Template)];
+        Title = type switch
+        {
+            MailType.ConfirmEmail => localizer[nameof(Resources.Program.MailSender_VerifyEmailTitle)],
+            MailType.ChangeEmail => localizer[nameof(Resources.Program.MailSender_ChangeEmailTitle)],
+            MailType.ResetPassword => localizer[nameof(Resources.Program.MailSender_ResetPasswordTitle)],
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+        Information = type switch
+        {
+            MailType.ConfirmEmail => localizer[nameof(Resources.Program.MailSender_VerifyEmailContent), email],
+            MailType.ChangeEmail => localizer[nameof(Resources.Program.MailSender_ChangeEmailContent)],
+            MailType.ResetPassword => localizer[nameof(Resources.Program.MailSender_ResetPasswordContent)],
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+        ButtonMessage = type switch
+        {
+            MailType.ConfirmEmail => localizer[nameof(Resources.Program.MailSender_VerifyEmailButton)],
+            MailType.ChangeEmail => localizer[nameof(Resources.Program.MailSender_ChangeEmailButton)],
+            MailType.ResetPassword => localizer[nameof(Resources.Program.MailSender_ResetPasswordButton)],
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+        UserName = userName;
+        Email = email;
+        Url = resetLink;
+        Time = DateTimeOffset.UtcNow.ToString("u");
+        Platform = globalConfig.Value.Platform;
+    }
 
-    /// <summary>
-    /// 邮件信息
-    /// </summary>
-    public string Information { get; } = type switch
+    public MailContent(string userName, string email, string title, string information,
+        IOptionsSnapshot<GlobalConfig> globalConfig)
     {
-        MailType.ConfirmEmail => localizer[nameof(Resources.Program.MailSender_VerifyEmailContent), email],
-        MailType.ChangeEmail => localizer[nameof(Resources.Program.MailSender_ChangeEmailContent)],
-        MailType.ResetPassword => localizer[nameof(Resources.Program.MailSender_ResetPasswordContent)],
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
-    };
+        Template = NotificationTemplate;
+        Title = title;
+        Information = information;
+        ButtonMessage = string.Empty;
+        UserName = userName;
+        Email = email;
+        Url = string.Empty;
+        Time = DateTimeOffset.UtcNow.ToString("u");
+        Platform = globalConfig.Value.Platform;
+    }
 
-    /// <summary>
-    /// 邮件按钮显示内容
-    /// </summary>
-    public string ButtonMessage { get; } = type switch
-    {
-        MailType.ConfirmEmail => localizer[nameof(Resources.Program.MailSender_VerifyEmailButton)],
-        MailType.ChangeEmail => localizer[nameof(Resources.Program.MailSender_ChangeEmailButton)],
-        MailType.ResetPassword => localizer[nameof(Resources.Program.MailSender_ResetPasswordButton)],
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
-    };
-
-    /// <summary>
-    /// 用户名
-    /// </summary>
-    public string UserName { get; } = userName;
-
-    /// <summary>
-    /// 用户邮箱
-    /// </summary>
-    public string Email { get; } = email;
-
-    /// <summary>
-    /// 邮件链接
-    /// </summary>
-    public string Url { get; } = resetLink;
-
-    /// <summary>
-    /// 发信时间
-    /// </summary>
-    public string Time { get; } = DateTimeOffset.UtcNow.ToString("u");
-
-    /// <summary>
-    /// 平台名称
-    /// </summary>
-    public string Platform { get; } = globalConfig.Value.Platform;
+    public string Template { get; }
+    public string Title { get; }
+    public string Information { get; }
+    public string ButtonMessage { get; }
+    public string UserName { get; }
+    public string Email { get; }
+    public string Url { get; }
+    public string Time { get; }
+    public string Platform { get; }
 }

@@ -91,7 +91,7 @@ const GameChallengeEdit: FC = () => {
 
   return (
     <WithGameEditTab
-      headProps={{ justify: 'apart' }}
+      headProps={{ justify: 'space-between' }}
       isLoading={!challenges}
       head={
         <>

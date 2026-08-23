@@ -344,7 +344,10 @@
   cursor: pointer;
   position: relative;
   display: block;
-  overflow: clip;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   height: 32px;
   min-height: 32px;
@@ -385,10 +388,15 @@
 
 .gameBox {
   width: 100%;
+  min-width: 0;
   padding-right: 8px;
   flex-wrap: nowrap;
   gap: var(--mantine-space-xs);
   justify-content: space-between;
+
+  & > :last-child {
+    flex-shrink: 0;
+  }
 
   &:hover {
     cursor: pointer;

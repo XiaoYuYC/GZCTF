@@ -39,8 +39,10 @@ import { WithGameEditTab } from '@Components/admin/WithGameEditTab'
 import { downloadBlob } from '@Utils/ApiHelper'
 import { getInputNumber, randomInviteCode, showErrorMsg, tryGetErrorMsg } from '@Utils/Shared'
 import { IMAGE_MIME_TYPES } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { useAdminGame } from '@Hooks/useGame'
-import api, { GameInfoModel } from '@Api'
+import api, { GameExtensionResponse, GameInfoModel } from '@Api'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 import misc from '@Styles/Misc.module.css'
 
 dayjs.extend(localizedFormat)
@@ -56,11 +58,45 @@ const GameInfoEdit: FC = () => {
   const [start, setStart] = useInputState(dayjs())
   const [end, setEnd] = useInputState(dayjs())
   const [wpddl, setWpddl] = useInputState(3)
+  const [cyctfExtension, setCyctfExtension] = useState<GameExtensionResponse | null>(null)
+  const [cyctfEnabled, setCyctfEnabled] = useState(false)
+  const [registrationStart, setRegistrationStart] = useInputState(dayjs())
+  const [registrationEnd, setRegistrationEnd] = useInputState(dayjs())
+  const [maxTeams, setMaxTeams] = useState<number | undefined>(undefined)
+  const [showRegistrationCount, setShowRegistrationCount] = useState(true)
+  const [showEventTime, setShowEventTime] = useState(true)
+  const [cyctfStatus, setCyctfStatus] = useInputState('')
 
   const modals = useModals()
   const clipboard = useClipboard()
 
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
+
+  const loadCyctfExtension = async () => {
+    if (numId < 0) return
+
+    try {
+      const res = await api.gameExtension.gameExtensionGetGameExtension(numId)
+      const extension = res.data
+      setCyctfExtension(extension)
+      setCyctfEnabled(true)
+      setRegistrationStart(dayjs(extension.registrationStartTime))
+      setRegistrationEnd(dayjs(extension.registrationEndTime))
+      setMaxTeams(extension.maxTeams ?? undefined)
+      setShowRegistrationCount(extension.showRegistrationCount ?? true)
+      setShowEventTime(extension.showEventTime ?? true)
+      setCyctfStatus(extension.status ?? '')
+    } catch (err: any) {
+      if (err.response?.status !== 404) showErrorMsg(err, t)
+      setCyctfExtension(null)
+      setCyctfEnabled(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadCyctfExtension()
+  }, [numId])
 
   useEffect(() => {
     if (numId < 0) {
@@ -124,6 +160,15 @@ const GameInfoEdit: FC = () => {
 
   const onUpdateInfo = async () => {
     if (!game?.title) return
+    if (cyctfEnabled && registrationEnd.isBefore(registrationStart)) {
+      showNotification({
+        color: 'red',
+        message: 'CYCTF 报名结束时间必须晚于开始时间',
+        icon: <Icon path={mdiClose} size={1} />,
+      })
+      return
+    }
+
     setDisabled(true)
 
     try {
@@ -134,6 +179,22 @@ const GameInfoEdit: FC = () => {
         end: end.valueOf(),
         writeupDeadline: end.add(wpddl, 'h').valueOf(),
       })
+
+      if (cyctfEnabled) {
+        const extensionResponse = await api.gameExtension.gameExtensionCreateOrUpdateGameExtension(numId, {
+          registrationStartTime: registrationStart.valueOf(),
+          registrationEndTime: registrationEnd.valueOf(),
+          maxTeams: maxTeams ?? undefined,
+          showRegistrationCount,
+          showEventTime,
+          status: cyctfStatus.trim() || undefined,
+        })
+        setCyctfExtension(extensionResponse.data)
+      } else if (cyctfExtension) {
+        await api.gameExtension.gameExtensionDeleteGameExtension(numId)
+        setCyctfExtension(null)
+      }
+
       showNotification({
         color: 'teal',
         message: t('admin.notification.games.info.info_updated'),
@@ -181,8 +242,8 @@ const GameInfoEdit: FC = () => {
 
   return (
     <WithGameEditTab
-      headProps={{ justify: 'apart' }}
-      contentPos="right"
+      headProps={{ justify: 'space-between' }}
+      contentPos="flex-end"
       isLoading={!game}
       head={
         <>
@@ -223,7 +284,7 @@ const GameInfoEdit: FC = () => {
         </>
       }
     >
-      <SimpleGrid cols={4}>
+      <SimpleGrid cols={{ base: 1, sm: 4 }}>
         <TextInput
           label={t('admin.content.games.info.title.label')}
           description={t('admin.content.games.info.title.description')}
@@ -277,6 +338,7 @@ const GameInfoEdit: FC = () => {
         <DateTimePicker
           label={t('admin.content.games.info.start_time')}
           size="sm"
+          dropdownType={isMobile ? 'modal' : 'popover'}
           value={start.toDate()}
           valueFormat="L LT"
           disabled={disabled}
@@ -293,6 +355,7 @@ const GameInfoEdit: FC = () => {
         <DateTimePicker
           label={t('admin.content.games.info.end_time')}
           size="sm"
+          dropdownType={isMobile ? 'modal' : 'popover'}
           disabled={disabled}
           minDate={start.toDate()}
           value={end.toDate()}
@@ -325,7 +388,82 @@ const GameInfoEdit: FC = () => {
           onChange={(e) => game && setGame({ ...game, practiceMode: e.target.checked })}
         />
       </SimpleGrid>
-      <Group grow justify="space-between">
+
+      <Stack gap="sm">
+        <Group justify="space-between" align="flex-start" className={layoutClasses.mobileStackGroup}>
+          <Stack gap={0}>
+            <Text fw={600}>报名设置</Text>
+            <Text size="sm" c="dimmed">
+              报名邮箱限制沿用系统设置中的 GZCTF 邮箱域名白名单。
+            </Text>
+          </Stack>
+          <Switch
+            checked={cyctfEnabled}
+            disabled={disabled}
+            label="启用 CYCTF 报名"
+            onChange={(event) => setCyctfEnabled(event.currentTarget.checked)}
+          />
+        </Group>
+        <Group grow className={layoutClasses.mobileStackGroup}>
+          <DateTimePicker
+            label="报名开始时间"
+            dropdownType={isMobile ? 'modal' : 'popover'}
+            value={registrationStart.toDate()}
+            onChange={(value) => value && setRegistrationStart(dayjs(value))}
+            disabled={disabled || !cyctfEnabled}
+          />
+          <DateTimePicker
+            label="报名结束时间"
+            dropdownType={isMobile ? 'modal' : 'popover'}
+            value={registrationEnd.toDate()}
+            onChange={(value) => value && setRegistrationEnd(dayjs(value))}
+            disabled={disabled || !cyctfEnabled}
+            minDate={registrationStart.toDate()}
+            error={cyctfEnabled && registrationEnd.isBefore(registrationStart)}
+          />
+        </Group>
+        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+          <NumberInput
+            label="最大报名队伍数"
+            description="留空表示不限制"
+            min={0}
+            value={maxTeams ?? ''}
+            disabled={disabled || !cyctfEnabled}
+            onChange={(value) => {
+              const number = getInputNumber(value)
+              setMaxTeams(value === '' || isNaN(number) ? undefined : number)
+            }}
+          />
+          <Switch
+            checked={showRegistrationCount}
+            disabled={disabled || !cyctfEnabled}
+            classNames={{ root: misc.switchVerticalMiddle }}
+            label={SwitchLabel('显示报名人数', '在报名页面显示当前报名队伍数')}
+            onChange={(event) => setShowRegistrationCount(event.currentTarget.checked)}
+          />
+          <Switch
+            checked={showEventTime}
+            disabled={disabled || !cyctfEnabled}
+            classNames={{ root: misc.switchVerticalMiddle }}
+            label={SwitchLabel('显示活动时间', '在报名页面显示报名起止时间')}
+            onChange={(event) => setShowEventTime(event.currentTarget.checked)}
+          />
+        </SimpleGrid>
+        {cyctfExtension && (
+          <Text size="sm" c="dimmed">
+            当前已报名队伍数：{cyctfExtension.currentTeams ?? 0}
+          </Text>
+        )}
+        <TextInput
+          label="状态文本"
+          description="自定义 CYCTF 报名页面的状态显示文本"
+          value={cyctfStatus}
+          disabled={disabled || !cyctfEnabled}
+          onChange={setCyctfStatus}
+        />
+      </Stack>
+
+      <Group grow justify="space-between" className={layoutClasses.mobileStackGroup}>
         <Textarea
           label={t('admin.content.games.info.summary.label')}
           description={t('admin.content.games.info.summary.description')}
@@ -338,7 +476,7 @@ const GameInfoEdit: FC = () => {
           onChange={(e) => game && setGame({ ...game, summary: e.target.value })}
         />
         <Stack gap="0.488125rem">
-          <Group grow justify="space-between">
+          <Group grow justify="space-between" className={layoutClasses.mobileStackGroup}>
             <Switch
               disabled={disabled}
               checked={game?.writeupRequired ?? false}
@@ -372,7 +510,7 @@ const GameInfoEdit: FC = () => {
           />
         </Stack>
       </Group>
-      <Grid grow>
+      <Grid grow className={layoutClasses.mobileStackGrid}>
         <Grid.Col span={8}>
           <Textarea
             label={

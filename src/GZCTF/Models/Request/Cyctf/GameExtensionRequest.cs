@@ -31,11 +31,6 @@ public class GameExtensionRequest
     public bool ShowEventTime { get; set; } = true;
 
     /// <summary>
-    /// 邮箱白名单（JSON 数组字符串）
-    /// </summary>
-    public string? EmailWhitelist { get; set; }
-
-    /// <summary>
     /// 比赛状态
     /// </summary>
     public string? Status { get; set; }

@@ -7,17 +7,19 @@ import { useParams } from 'react-router'
 import { PDFViewer } from '@Components/admin/PDFViewer'
 import { TeamWriteupCard } from '@Components/admin/TeamWriteupCard'
 import { WithGameEditTab } from '@Components/admin/WithGameEditTab'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { OnceSWRConfig } from '@Hooks/useConfig'
 import api, { WriteupInfo } from '@Api'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 
 const GameWriteups: FC = () => {
   const { id } = useParams()
   const numId = parseInt(id ?? '-1')
   const [selected, setSelected] = useState<WriteupInfo>()
   const [selectedDivision, setSelectedDivision] = useState<string>('')
-
   const { data } = api.admin.useAdminWriteups(numId, OnceSWRConfig)
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   const writeups = useMemo(() => data?.writeups ?? [], [data?.writeups])
 
@@ -44,8 +46,8 @@ const GameWriteups: FC = () => {
 
   return (
     <WithGameEditTab
-      headProps={{ justify: 'apart' }}
-      contentPos="right"
+      headProps={{ justify: 'space-between' }}
+      contentPos="flex-end"
       head={
         <Button
           fullWidth
@@ -57,7 +59,14 @@ const GameWriteups: FC = () => {
         </Button>
       }
     >
-      <Group wrap="nowrap" align="flex-start" justify="space-between">
+      <Group
+        wrap={isMobile ? 'wrap' : 'nowrap'}
+        align="flex-start"
+        justify="space-between"
+        w="100%"
+        miw={0}
+        className={isMobile ? layoutClasses.mobileStackGroup : undefined}
+      >
         {!filteredWriteups?.length || !selected ? (
           <Center w="100%" mih="calc(100vh - 180px)">
             <Stack gap={0}>
@@ -66,11 +75,23 @@ const GameWriteups: FC = () => {
             </Stack>
           </Center>
         ) : (
-          <Stack pos="relative" mt="-3rem" w="calc(100% - 120px)">
-            <PDFViewer url={selected?.url} height="calc(100vh - 110px)" />
+          <Stack
+            pos="relative"
+            mt={isMobile ? 0 : '-3rem'}
+            w={isMobile ? '100%' : 'calc(100% - 120px)'}
+            miw={0}
+            className={layoutClasses.content}
+          >
+            <PDFViewer url={selected?.url} height={isMobile ? '60vh' : 'calc(100vh - 110px)'} />
           </Stack>
         )}
-        <Stack gap="sm" miw="15rem" maw="15rem" h="calc(100vh - 110px - 3rem)">
+        <Stack
+          gap="sm"
+          miw={isMobile ? 0 : '15rem'}
+          maw={isMobile ? '100%' : '15rem'}
+          w={isMobile ? '100%' : undefined}
+          h={isMobile ? 'auto' : 'calc(100vh - 110px - 3rem)'}
+        >
           <Select
             data={divisionOptions}
             value={selectedDivision}

@@ -2,7 +2,6 @@ using GZCTF.Middlewares;
 using GZCTF.Models.Request.Cyctf;
 using GZCTF.Models.Response.Cyctf;
 using GZCTF.Repositories.Interface;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 
@@ -13,7 +12,6 @@ namespace GZCTF.Controllers.Cyctf;
 /// </summary>
 [Route("api/cyctf/games/{gameId:int}/extension")]
 [ApiController]
-[Authorize(Policy = "Admin")]
 public class GameExtensionController(
     IGameExtensionRepository gameExtensionRepository,
     IGameRepository gameRepository,
@@ -51,6 +49,7 @@ public class GameExtensionController(
     /// <response code="200">成功创建或更新比赛扩展信息</response>
     /// <response code="404">比赛不存在</response>
     [HttpPut]
+    [RequireAdmin]
     [ProducesResponseType(typeof(GameExtensionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateOrUpdateGameExtension(int gameId, [FromBody] GameExtensionRequest request, CancellationToken token)
@@ -67,7 +66,6 @@ public class GameExtensionController(
             MaxTeams = request.MaxTeams,
             ShowRegistrationCount = request.ShowRegistrationCount,
             ShowEventTime = request.ShowEventTime,
-            EmailWhitelist = request.EmailWhitelist,
             Status = request.Status
         };
 
@@ -83,6 +81,7 @@ public class GameExtensionController(
     /// <response code="200">成功删除比赛扩展信息</response>
     /// <response code="404">比赛或扩展信息不存在</response>
     [HttpDelete]
+    [RequireAdmin]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteGameExtension(int gameId, CancellationToken token)

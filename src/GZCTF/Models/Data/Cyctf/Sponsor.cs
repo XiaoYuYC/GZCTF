@@ -22,6 +22,17 @@ public class Sponsor
     public int GameId { get; set; }
 
     /// <summary>
+    /// 关联的 GZCTF 队伍 ID
+    /// </summary>
+    public int? TeamId { get; set; }
+
+    /// <summary>
+    /// 队伍显示名称快照，或管理员填写的自定义名称
+    /// </summary>
+    [MaxLength(100)]
+    public string? TeamName { get; set; }
+
+    /// <summary>
     /// 赞助商简称
     /// </summary>
     [Required]
@@ -47,11 +58,11 @@ public class Sponsor
     public string? LogoUrl { get; set; }
 
     /// <summary>
-    /// 赞助商类型（CO_ORGANIZER, SPONSOR, PARTNER）
+    /// 赞助商类型（ORGANIZER, UNDERTAKER, CO_ORGANIZER, SPECIAL_THANKS 或自定义值）
     /// </summary>
     [Required]
     [MaxLength(50)]
-    public string Type { get; set; } = "SPONSOR";
+    public string Type { get; set; } = "ORGANIZER";
 
     /// <summary>
     /// 类型标签（用于前端显示）

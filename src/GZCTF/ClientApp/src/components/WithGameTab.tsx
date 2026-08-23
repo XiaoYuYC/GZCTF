@@ -1,6 +1,13 @@
 import { Card, LoadingOverlay, Stack, Text, Title } from '@mantine/core'
 import { showNotification } from '@mantine/notifications'
-import { mdiAccountMultiplePlus, mdiTrophyOutline, mdiChartLine, mdiExclamationThick, mdiFlagOutline, mdiMonitorEye } from '@mdi/js'
+import {
+  mdiAccountMultiplePlus,
+  mdiTrophyOutline,
+  mdiChartLine,
+  mdiExclamationThick,
+  mdiFlagOutline,
+  mdiMonitorEye,
+} from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'

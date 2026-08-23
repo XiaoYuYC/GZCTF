@@ -32,6 +32,7 @@ import { GameColorMap } from '@Components/GameCard'
 import { AdminPage } from '@Components/admin/AdminPage'
 import { GameCreateModal } from '@Components/admin/GameCreateModal'
 import { showErrorMsg } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { useArrayResponse } from '@Hooks/useArrayResponse'
 import { getGameStatus } from '@Hooks/useGame'
 import api, { GameInfoModel } from '@Api'
@@ -52,6 +53,7 @@ const Games: FC = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const theme = useMantineTheme()
+  const isMobile = useIsMobile()
 
   const onToggleHidden = async (game: GameInfoModel) => {
     if (!game.id) return
@@ -137,10 +139,10 @@ const Games: FC = () => {
   return (
     <AdminPage
       isLoading={!games}
-      headProps={{ justify: 'apart' }}
+      headProps={{ justify: 'space-between' }}
       head={
         <>
-          <Group gap="md" wrap="nowrap">
+          <Group gap="md" wrap={isMobile ? 'wrap' : 'nowrap'} w={isMobile ? '100%' : undefined}>
             <Button leftSection={<Icon path={mdiPlus} size={1} />} onClick={() => setCreateOpened(true)}>
               {t('admin.button.games.new')}
             </Button>
@@ -169,8 +171,8 @@ const Games: FC = () => {
               )}
             </FileButton>
           </Group>
-          <Group w="calc(100% - 9rem)" justify="right">
-            <Text fw="bold" size="sm">
+          <Group w={isMobile ? '100%' : 'calc(100% - 9rem)'} justify="flex-end" wrap="nowrap" gap="sm">
+            <Text fw="bold" size="sm" style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}>
               <Trans
                 i18nKey="admin.content.games.stats"
                 values={{
@@ -196,7 +198,7 @@ const Games: FC = () => {
     >
       <Paper shadow="md" p="md" w="100%">
         <ScrollArea offsetScrollbars h="calc(100vh - 190px)">
-          <Table className={tableClasses.table}>
+          <Table className={tableClasses.table} miw={isMobile ? '40rem' : undefined}>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th miw="1.8rem">{t('admin.label.games.hide')}</Table.Th>
@@ -228,7 +230,7 @@ const Games: FC = () => {
                             <Avatar alt="avatar" src={game.poster} radius={0}>
                               {game.title?.slice(0, 1)}
                             </Avatar>
-                            <Text fw="bold" lineClamp={1} maw="calc(20vw)">
+                            <Text fw="bold" lineClamp={1} maw={isMobile ? '12rem' : 'calc(20vw)'}>
                               {game.title}
                             </Text>
                           </Group>
@@ -236,12 +238,22 @@ const Games: FC = () => {
                         </Group>
                       </Table.Td>
                       <Table.Td>
-                        <Group wrap="nowrap" gap="xs">
-                          <Badge size="sm" color={color} variant="dot">
+                        <Group wrap="nowrap" gap="xs" style={isMobile ? { width: 'max-content' } : undefined}>
+                          <Badge
+                            size="sm"
+                            color={color}
+                            variant="dot"
+                            style={isMobile ? { flex: '0 0 auto' } : undefined}
+                          >
                             {dayjs(startTime).format('YYYY-MM-DD HH:mm')}
                           </Badge>
                           <Icon path={mdiChevronTripleRight} size={1} />
-                          <Badge size="sm" color={color} variant="dot">
+                          <Badge
+                            size="sm"
+                            color={color}
+                            variant="dot"
+                            style={isMobile ? { flex: '0 0 auto' } : undefined}
+                          >
                             {dayjs(endTime).format('YYYY-MM-DD HH:mm')}
                           </Badge>
                         </Group>
@@ -252,7 +264,7 @@ const Games: FC = () => {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Group justify="right">
+                        <Group justify="flex-end">
                           <ActionIcon component={Link} to={`/admin/games/${game.id}/info`}>
                             <Icon path={mdiPencilOutline} size={1} />
                           </ActionIcon>

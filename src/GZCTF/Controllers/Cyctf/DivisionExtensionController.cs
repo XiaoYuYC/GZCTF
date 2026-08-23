@@ -13,7 +13,6 @@ namespace GZCTF.Controllers.Cyctf;
 /// </summary>
 [Route("api/cyctf/divisions/{divisionId:int}/extension")]
 [ApiController]
-[Authorize(Policy = "Admin")]
 public class DivisionExtensionController(
     IDivisionExtensionRepository divisionExtensionRepository,
     IDivisionRepository divisionRepository,
@@ -27,6 +26,7 @@ public class DivisionExtensionController(
     /// <response code="200">成功获取组别扩展信息</response>
     /// <response code="404">组别或扩展信息不存在</response>
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(DivisionExtensionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDivisionExtension(int divisionId, CancellationToken token)
@@ -47,6 +47,7 @@ public class DivisionExtensionController(
     /// <response code="200">成功创建或更新组别扩展信息</response>
     /// <response code="404">组别不存在</response>
     [HttpPut]
+    [RequireAdmin]
     [ProducesResponseType(typeof(DivisionExtensionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateOrUpdateDivisionExtension(int divisionId, [FromBody] DivisionExtensionRequest request, CancellationToken token)
@@ -71,6 +72,7 @@ public class DivisionExtensionController(
     /// <response code="200">成功删除组别扩展信息</response>
     /// <response code="404">组别或扩展信息不存在</response>
     [HttpDelete]
+    [RequireAdmin]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteDivisionExtension(int divisionId, CancellationToken token)
@@ -89,6 +91,7 @@ public class DivisionExtensionController(
     /// <param name="token"></param>
     /// <response code="200">成功获取组别扩展信息列表</response>
     [HttpGet("/api/cyctf/games/{gameId:int}/division-extensions")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(DivisionExtensionResponse[]), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDivisionExtensionsByGameId(int gameId, CancellationToken token)
     {

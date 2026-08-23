@@ -11,7 +11,7 @@ namespace GZCTF.Models.Data.Cyctf;
 [Index(nameof(GameId))]
 [Index(nameof(TeamId))]
 [Index(nameof(DivisionId))]
-[Index(nameof(GameId), nameof(TeamId), nameof(DivisionId))]
+[Index(nameof(GameId), nameof(TeamId), IsUnique = true)]
 public class Registration
 {
     [Key]
@@ -25,10 +25,9 @@ public class Registration
     public int GameId { get; set; }
 
     /// <summary>
-    /// 关联的队伍 ID
+    /// 关联的队伍 ID（无需登录报名时可能为 null）
     /// </summary>
-    [Required]
-    public int TeamId { get; set; }
+    public int? TeamId { get; set; }
 
     /// <summary>
     /// 关联的组别 ID
@@ -48,6 +47,30 @@ public class Registration
     /// </summary>
     [Column(TypeName = "text")]
     public string? FormData { get; set; }
+
+    /// <summary>
+    /// 队长邮箱（新报名流程使用，为 null 表示旧的登录报名流程）
+    /// </summary>
+    [MaxLength(256)]
+    public string? CaptainEmail { get; set; }
+
+    /// <summary>
+    /// 队伍名称（无需登录报名使用，审核通过后用于创建队伍）
+    /// </summary>
+    [MaxLength(128)]
+    public string? TeamName { get; set; }
+
+    /// <summary>
+    /// 队员邀请信息 JSON：[{"email":"x@x.com","token":"uuid","accepted":false,"rejected":false,"acceptedAt":null}]
+    /// </summary>
+    [Column(TypeName = "text")]
+    public string? MemberInvitations { get; set; }
+
+    /// <summary>
+    /// 报名确认 Token（队长确认邮件使用）
+    /// </summary>
+    [MaxLength(64)]
+    public string? ConfirmationToken { get; set; }
 
     /// <summary>
     /// 审核备注

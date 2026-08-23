@@ -7,6 +7,13 @@ namespace GZCTF.Services.Mail;
 public interface IMailSender
 {
     /// <summary>
+    /// 将邮件内容加入 GZCTF 的 SMTP 后台队列。
+    /// </summary>
+    /// <param name="content">邮件内容</param>
+    /// <returns>是否成功入队</returns>
+    public bool EnqueueMailContent(MailContent content);
+
+    /// <summary>
     /// 发送带邮件内容
     /// </summary>
     /// <param name="content">邮件内容</param>

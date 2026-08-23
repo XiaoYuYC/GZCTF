@@ -7,6 +7,7 @@ import {
   mdiPalette,
   mdiTranslate,
   mdiWeatherNight,
+  mdiWrenchOutline,
   mdiWeatherSunny,
 } from '@mdi/js'
 import { Icon } from '@mdi/react'
@@ -19,6 +20,7 @@ import { clearLocalCache } from '@Utils/Cache'
 import { LanguageMap, SupportedLanguages, useLanguage } from '@Utils/I18n'
 import { useIsMobile } from '@Utils/ThemeOverride'
 import { useLogOut, useUser } from '@Hooks/useUser'
+import { Role } from '@Api'
 import classes from '@Styles/AppHeader.module.css'
 
 export const AppHeader: FC<AppControlProps> = ({ openColorModal }) => {
@@ -72,6 +74,15 @@ export const AppHeader: FC<AppControlProps> = ({ openColorModal }) => {
                   >
                     {t('common.tab.account.profile')}
                   </Menu.Item>
+                  {user.role === Role.Admin && (
+                    <Menu.Item
+                      component={Link}
+                      to="/admin/games"
+                      leftSection={<Icon path={mdiWrenchOutline} size={1} />}
+                    >
+                      {t('common.tab.admin')}
+                    </Menu.Item>
+                  )}
                   <Menu.Item color="red" onClick={logout} leftSection={<Icon path={mdiLogout} size={1} />}>
                     {t('common.tab.account.logout')}
                   </Menu.Item>

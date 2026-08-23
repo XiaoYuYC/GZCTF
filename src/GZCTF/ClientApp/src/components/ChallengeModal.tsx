@@ -22,6 +22,7 @@ import { InstanceEntry } from '@Components/InstanceEntry'
 import { ContentPlaceholder, InlineMarkdown, Markdown } from '@Components/MarkdownRenderer'
 import { useLanguage } from '@Utils/I18n'
 import { ChallengeCategoryItemProps } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { ChallengeDetailModel, ChallengeType } from '@Api'
 import classes from '@Styles/ChallengeModal.module.css'
 import misc from '@Styles/Misc.module.css'
@@ -114,6 +115,7 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
   const { t } = useTranslation()
   const theme = useMantineTheme()
   const { locale } = useLanguage()
+  const isMobile = useIsMobile()
 
   const placeholders = t('challenge.content.flag_placeholders', {
     returnObjects: true,
@@ -294,8 +296,8 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
 
   return (
     <Modal.Root
-      size="42vw"
       {...modalProps}
+      size={isMobile ? 'calc(100vw - 2rem)' : (modalProps.size ?? '42vw')}
       onClose={() => {
         setFlag('')
         modalProps.onClose()

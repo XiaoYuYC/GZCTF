@@ -7,6 +7,7 @@ using GZCTF.Models.Request.Admin;
 using GZCTF.Models.Request.Edit;
 using GZCTF.Models.Request.Game;
 using GZCTF.Models.Request.Info;
+using GZCTF.Models.Response.Cyctf;
 using GZCTF.Services.Container.Provider;
 using Namotion.Reflection;
 using NJsonSchema;
@@ -59,6 +60,8 @@ namespace GZCTF.Utils;
 [JsonSerializable(typeof(BasicWriteupInfoModel))]
 [JsonSerializable(typeof(PostInfoModel[]))]
 [JsonSerializable(typeof(ClientConfig))]
+[JsonSerializable(typeof(RegistrationQueryResponse))]
+[JsonSerializable(typeof(RegistrationQueryResponse[]))]
 [JsonSerializable(typeof(ClientCaptchaInfoModel))]
 [JsonSerializable(typeof(TeamInfoModel))]
 [JsonSerializable(typeof(TeamInfoModel[]))]

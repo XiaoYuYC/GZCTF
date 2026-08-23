@@ -31,3 +31,11 @@ body {
 ::-webkit-scrollbar-corner {
   background-color: transparent;
 }
+
+@media (max-width: 47.99375em) {
+  [data-modal-content='true'] {
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    flex: 0 0 calc(100vw - 2rem) !important;
+  }
+}

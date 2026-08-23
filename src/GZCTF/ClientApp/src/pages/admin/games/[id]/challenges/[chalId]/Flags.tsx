@@ -35,6 +35,7 @@ import { showErrorMsg } from '@Utils/Shared'
 import { useDisplayInputStyles } from '@Utils/ThemeOverride'
 import { useEditChallenge } from '@Hooks/useEdit'
 import api, { ChallengeType, FileType, FlagInfoModel } from '@Api'
+import layoutClasses from '@Styles/AdminLayout.module.css'
 import misc from '@Styles/Misc.module.css'
 import uploadClasses from '@Styles/Upload.module.css'
 
@@ -190,7 +191,7 @@ const OneAttachmentWithFlags: FC<FlagEditProps> = ({ onDelete }) => {
 
   return (
     <Stack>
-      <Group justify="space-between" wrap="nowrap" mt="md">
+      <Group justify="space-between" wrap="nowrap" mt="md" className={layoutClasses.mobileStackGroup}>
         <Title order={2}>{t('admin.content.games.challenges.attachment.title')}</Title>
         {type !== FileType.Remote ? (
           <FileButton onChange={onUpload}>
@@ -226,7 +227,7 @@ const OneAttachmentWithFlags: FC<FlagEditProps> = ({ onDelete }) => {
         )}
       </Group>
       <Divider />
-      <Group justify="space-between" wrap="nowrap">
+      <Group justify="space-between" wrap="nowrap" className={layoutClasses.mobileStackGroup}>
         <Input.Wrapper label={t('admin.content.games.challenges.attachment.type')} required>
           <Chip.Group
             value={type}
@@ -243,7 +244,7 @@ const OneAttachmentWithFlags: FC<FlagEditProps> = ({ onDelete }) => {
               }
             }}
           >
-            <Group justify="left" gap="sm" h="2.25rem" wrap="nowrap">
+            <Group justify="left" gap="sm" h="2.25rem" wrap="nowrap" className={layoutClasses.mobileScrollX}>
               {Object.entries(FileType).map((type) => (
                 <Chip key={type[0]} value={type[1]} size="sm">
                   {FileTypeDesrcMap.get(type[1])}
@@ -259,6 +260,7 @@ const OneAttachmentWithFlags: FC<FlagEditProps> = ({ onDelete }) => {
             disabled={disabled || type === FileType.None}
             value={challenge?.attachment?.url ?? ''}
             w="calc(100% - 400px)"
+            className={layoutClasses.mobileFullWidth}
             classNames={{ input: uploadClasses.hover }}
             onClick={() => challenge?.attachment?.url && window.open(challenge?.attachment?.url, '_blank')}
           />
@@ -268,6 +270,7 @@ const OneAttachmentWithFlags: FC<FlagEditProps> = ({ onDelete }) => {
             disabled={disabled}
             value={remoteUrl}
             w="calc(100% - 400px)"
+            className={layoutClasses.mobileFullWidth}
             classNames={{ input: uploadClasses.hover }}
             onChange={(e) => setRemoteUrl(e.target.value)}
           />
@@ -487,7 +490,7 @@ const GameChallengeEdit: FC = () => {
   return (
     <WithChallengeEdit
       isLoading={!challenge}
-      headProps={{ justify: 'apart' }}
+      headProps={{ justify: 'space-between' }}
       backUrl={`/admin/games/${id}/challenges`}
       head={
         <>

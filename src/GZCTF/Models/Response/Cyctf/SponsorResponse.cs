@@ -9,6 +9,8 @@ public class SponsorResponse
 {
     public int Id { get; set; }
     public int GameId { get; set; }
+    public int? TeamId { get; set; }
+    public string? TeamName { get; set; }
     public string ShortName { get; set; } = string.Empty;
     public string? FullName { get; set; }
     public string? Website { get; set; }
@@ -23,6 +25,8 @@ public class SponsorResponse
     {
         Id = entity.Id,
         GameId = entity.GameId,
+        TeamId = entity.TeamId,
+        TeamName = entity.TeamName,
         ShortName = entity.ShortName,
         FullName = entity.FullName,
         Website = entity.Website,

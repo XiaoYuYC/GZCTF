@@ -43,11 +43,15 @@ import classes from '@Styles/AppNavbar.module.css'
 import misc from '@Styles/Misc.module.css'
 
 interface NavbarItem {
+  id: string
   icon: string
   label: string
   link: string
   admin?: boolean
+  required?: boolean
 }
+
+const DEFAULT_SIDEBAR_ITEMS = ['home', 'post', 'game', 'team', 'about', 'admin']
 
 export interface NavbarLinkProps {
   icon: string
@@ -86,13 +90,18 @@ export const AppNavbar: FC<AppControlProps> = ({ openColorModal }) => {
   const { setLanguage, supportedLanguages } = useLanguage()
 
   const items: NavbarItem[] = [
-    { icon: mdiHomeVariantOutline, label: 'common.tab.home', link: '/' },
-    { icon: mdiNoteTextOutline, label: 'common.tab.post', link: '/posts' },
-    { icon: mdiFlagOutline, label: 'common.tab.game', link: '/games' },
-    { icon: mdiAccountGroupOutline, label: 'common.tab.team', link: '/teams' },
-    { icon: mdiInformationOutline, label: 'common.tab.about', link: '/about' },
-    { icon: mdiWrenchOutline, label: 'common.tab.admin', link: '/admin/games', admin: true },
+    { id: 'home', icon: mdiHomeVariantOutline, label: 'common.tab.home', link: '/', required: true },
+    { id: 'post', icon: mdiNoteTextOutline, label: 'common.tab.post', link: '/posts' },
+    { id: 'game', icon: mdiFlagOutline, label: 'common.tab.game', link: '/games' },
+    { id: 'team', icon: mdiAccountGroupOutline, label: 'common.tab.team', link: '/teams' },
+    { id: 'about', icon: mdiInformationOutline, label: 'common.tab.about', link: '/about' },
+    { id: 'admin', icon: mdiWrenchOutline, label: 'common.tab.admin', link: '/admin/games', admin: true },
   ]
+
+  const visibleSidebarItems = (config.sidebarVisibleItems ?? DEFAULT_SIDEBAR_ITEMS.join(','))
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
 
   const getLabel = (path: string) =>
     items.find((item) =>
@@ -114,8 +123,10 @@ export const AppNavbar: FC<AppControlProps> = ({ openColorModal }) => {
   }, [location.pathname])
 
   const links = items
-    .filter((m) => !m.admin || user?.role === Role.Admin)
-    .map((link) => <NavbarLink key={link.label} {...link} isActive={link.label === active} />)
+    .filter(
+      (item) => (item.required || visibleSidebarItems.includes(item.id)) && (!item.admin || user?.role === Role.Admin)
+    )
+    .map((link) => <NavbarLink key={link.id} {...link} isActive={link.label === active} />)
 
   const loggedIn = user && !error
 
@@ -144,6 +155,8 @@ export const AppNavbar: FC<AppControlProps> = ({ openColorModal }) => {
               </Popover.Dropdown>
             </Popover>
           )}
+
+          {/* Sidebar visibility is configured by administrators. */}
 
           {/* Language */}
           <Menu position="right" offset={24} width={160}>
