@@ -8,7 +8,14 @@ public interface IRegistrationRepository : IRepository
     Task<List<Registration>> GetRegistrationsByGameId(int gameId, string? status = null,
         CancellationToken token = default);
 
+    /// <summary>
+    /// 获取指定比赛的全部报名记录，包括软删除记录，用于清理历史参赛关系。
+    /// </summary>
+    Task<List<Registration>> GetRegistrationsByGameIdIncludingDeleted(int gameId,
+        CancellationToken token = default);
+
     Task<Registration?> GetRegistrationByTeamAndGame(int teamId, int gameId,
+
         CancellationToken token = default);
 
     Task<Registration?> GetActiveRegistrationByCaptainAndGame(Guid captainId, int gameId,
@@ -26,6 +33,9 @@ public interface IRegistrationRepository : IRepository
 
     Task<Registration?> UpdateRegistrationStatus(int id, string status, string? reviewNote, Guid? reviewedBy,
         CancellationToken token = default);
+
+    Task<Registration?> UpdateRegistrationStatus(Registration registration, string status, string? reviewNote,
+        Guid? reviewedBy, CancellationToken token = default);
 
     Task<bool> HasRegistration(int teamId, int gameId, CancellationToken token = default);
 

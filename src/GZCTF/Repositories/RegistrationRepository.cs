@@ -11,6 +11,23 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
 {
     private const string RootPrefix = "CYCTF:Registration:";
     private static string Key(int gameId, int teamId) => $"{RootPrefix}{gameId}:{teamId}";
+    private static string EmailKey(int gameId, string? email) =>
+        $"{RootPrefix}{gameId}:email:{email?.Trim().ToLowerInvariant()}";
+    private static string ArchiveKey(int gameId, int id) => $"{RootPrefix}{gameId}:history:{id}";
+
+    private async Task<string> ResolveWriteKey(Registration registration, CancellationToken token)
+    {
+        if (registration.TeamId.HasValue)
+            return Key(registration.GameId, registration.TeamId.Value);
+
+        var existingKey = (await store.GetByPrefix<Registration>(RootPrefix, token))
+            .Where(item => item.Value.Id == registration.Id && item.Value.GameId == registration.GameId)
+            .OrderByDescending(item => item.Value.UpdateTime)
+            .ThenByDescending(item => item.Value.Deleted)
+            .Select(item => item.Key)
+            .FirstOrDefault();
+        return existingKey ?? EmailKey(registration.GameId, registration.CaptainEmail);
+    }
 
     public async Task<List<Registration>> GetRegistrationsByGameId(int gameId, string? status = null,
         CancellationToken token = default)
@@ -24,8 +41,28 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
 
         var registrations = (await store.GetByPrefix<Registration>(RootPrefix, token))
             .Select(item => item.Value)
-            .Where(item => item.GameId == gameId && !item.Deleted)
+            .Where(item => item.GameId == gameId)
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
+            .Where(item => !item.Deleted)
             .Where(item => statusList == null || statusList.Contains(item.Status))
+            .OrderByDescending(item => item.CreateTime)
+            .ToList();
+
+        await Hydrate(registrations, token);
+        return registrations;
+    }
+
+    public async Task<List<Registration>> GetRegistrationsByGameIdIncludingDeleted(int gameId,
+        CancellationToken token = default)
+    {
+        var registrations = (await store.GetByPrefix<Registration>(RootPrefix, token))
+            .Select(item => item.Value)
+            .Where(item => item.GameId == gameId)
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
             .OrderByDescending(item => item.CreateTime)
             .ToList();
 
@@ -56,9 +93,13 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
 
         var registration = (await store.GetByPrefix<Registration>(RootPrefix, token))
             .Select(item => item.Value)
-            .Where(item => item.GameId == gameId && !item.Deleted &&
-                           item.Status is not ("CANCELLED" or "REJECTED") &&
+            .Where(item => item.GameId == gameId &&
                            item.TeamId.HasValue && captainTeamIds.Contains(item.TeamId.Value))
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted)
+                .First())
+            .Where(item => !item.Deleted && item.Status is not ("CANCELLED" or "REJECTED"))
             .OrderByDescending(item => item.UpdateTime)
             .FirstOrDefault();
 
@@ -73,9 +114,13 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var registration = (await store.GetByPrefix<Registration>(RootPrefix, token))
             .Select(item => item.Value)
-            .Where(item => item.GameId == gameId && !item.Deleted &&
+            .Where(item => item.GameId == gameId &&
                            item.CaptainEmail != null &&
                            item.CaptainEmail.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
+            .Where(item => !item.Deleted)
             .OrderByDescending(item => item.UpdateTime)
             .FirstOrDefault();
 
@@ -90,10 +135,13 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var registration = (await store.GetByPrefix<Registration>(RootPrefix, token))
             .Select(item => item.Value)
-            .Where(item => item.GameId == gameId && !item.Deleted &&
-                           item.Status == "APPROVED" &&
+            .Where(item => item.GameId == gameId &&
                            item.CaptainEmail != null &&
                            item.CaptainEmail.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
+            .Where(item => !item.Deleted && item.Status == "APPROVED")
             .OrderByDescending(item => item.UpdateTime)
             .FirstOrDefault();
 
@@ -106,21 +154,32 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
     {
         var registrations = await store.GetByPrefix<Registration>(RootPrefix, token);
         var registration = registrations.Select(item => item.Value)
-            .FirstOrDefault(item => item.Id == id && !item.Deleted);
-        if (registration is not null)
+            .Where(item => item.Id == id)
+            .OrderByDescending(item => item.UpdateTime)
+            .ThenByDescending(item => item.Deleted)
+            .FirstOrDefault();
+        if (registration is not null && !registration.Deleted)
             await Hydrate(registration, token);
-        return registration;
+        return registration is { Deleted: false } ? registration : null;
     }
 
     public async Task<Registration> CreateRegistration(Registration registration,
         CancellationToken token = default)
     {
-        // 无需登录报名没有 TeamId，使用 Email + GameId 作为键
+        // 无需登录报名使用 Email + GameId 作为当前记录键；同邮箱历史记录改为归档键保留。
         var key = registration.TeamId.HasValue
             ? Key(registration.GameId, registration.TeamId.Value)
-            : $"{RootPrefix}{registration.GameId}:email:{registration.CaptainEmail}";
+            : EmailKey(registration.GameId, registration.CaptainEmail);
 
         var existing = await store.Get<Registration>(key, token);
+        if (existing is not null &&
+            (existing.Deleted || !string.Equals(existing.Status, "APPROVED", StringComparison.OrdinalIgnoreCase)))
+        {
+            await store.Set(ArchiveKey(existing.GameId, existing.Id), existing, token);
+            await store.Delete(key, token);
+            existing = null;
+        }
+
         registration.Id = existing?.Id ?? await store.NextId(RootPrefix, token);
         registration.CreateTime = existing?.CreateTime ?? DateTimeOffset.UtcNow;
         registration.UpdateTime = DateTimeOffset.UtcNow;
@@ -134,25 +193,31 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         Guid? reviewedBy, CancellationToken token = default)
     {
         var registration = await GetRegistrationById(id, token);
-        if (registration is null)
-            return null;
+        return registration is null
+            ? null
+            : await UpdateRegistrationStatus(registration, status, reviewNote, reviewedBy, token);
+    }
 
+    public async Task<Registration?> UpdateRegistrationStatus(Registration registration, string status,
+        string? reviewNote, Guid? reviewedBy, CancellationToken token = default)
+    {
         registration.Status = status.ToUpperInvariant();
         registration.ReviewNote = reviewNote;
         registration.ReviewedBy = reviewedBy;
         registration.ReviewedAt = DateTimeOffset.UtcNow;
         registration.UpdateTime = registration.ReviewedAt.Value;
 
-        var key = registration.TeamId.HasValue
-            ? Key(registration.GameId, registration.TeamId.Value)
-            : $"{RootPrefix}{registration.GameId}:email:{registration.CaptainEmail}";
+        var key = await ResolveWriteKey(registration, token);
 
-        await store.Set(key, registration, token);
+        await store.ReplaceByPrefixAndValue(RootPrefix,
+            item => item.Id == registration.Id && item.GameId == registration.GameId,
+            key, registration, token);
         return registration;
     }
 
     public async Task<bool> HasRegistration(int teamId, int gameId, CancellationToken token = default) =>
-        await GetRegistrationByTeamAndGame(teamId, gameId, token) is { Status: not "CANCELLED" };
+        await GetRegistrationByTeamAndGame(teamId, gameId, token) is
+        { Status: not ("CANCELLED" or "REJECTED") };
 
     public async Task<Dictionary<string, int>> GetRegistrationStats(int gameId,
         CancellationToken token = default)
@@ -166,8 +231,11 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
     {
         var registrations = (await store.GetByPrefix<Registration>(RootPrefix, token))
             .Select(item => item.Value)
-            .Where(item => !item.Deleted)
             .Where(item => gameId is null || item.GameId == gameId)
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
+            .Where(item => !item.Deleted)
             .Where(item => string.IsNullOrWhiteSpace(status) ||
                            item.Status == status!.Trim().ToUpperInvariant())
             .OrderByDescending(item => item.CreateTime)
@@ -206,12 +274,11 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
 
         registration.Deleted = true;
         registration.UpdateTime = DateTimeOffset.UtcNow;
+        var key = await ResolveWriteKey(registration, token);
 
-        var key = registration.TeamId.HasValue
-            ? Key(registration.GameId, registration.TeamId.Value)
-            : $"{RootPrefix}{registration.GameId}:email:{registration.CaptainEmail}";
-
-        await store.Set(key, registration, token);
+        await store.ReplaceByPrefixAndValue(RootPrefix,
+            item => item.Id == registration.Id && item.GameId == registration.GameId,
+            key, registration, token);
         return true;
     }
 
@@ -230,8 +297,11 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         var registrations = await store.GetByPrefix<Registration>(RootPrefix, token);
         var pendingWithSameName = registrations
             .Select(item => item.Value)
-            .Any(r => r.GameId == gameId && 
-                      !r.Deleted && 
+            .Where(item => item.GameId == gameId)
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
+            .Any(r => !r.Deleted &&
                       r.Status == "PENDING" &&
                       !string.IsNullOrWhiteSpace(r.TeamName) &&
                       r.TeamName.Equals(normalizedName, StringComparison.OrdinalIgnoreCase));
@@ -246,9 +316,11 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         var registrations = await store.GetByPrefix<Registration>(RootPrefix, token);
         var approvedRegistrations = registrations
             .Select(item => item.Value)
-            .Where(r => r.GameId == gameId && 
-                        !r.Deleted && 
-                        r.Status == "APPROVED")
+            .Where(item => item.GameId == gameId)
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
+            .Where(item => !item.Deleted && item.Status == "APPROVED")
             .ToList();
 
         foreach (var reg in approvedRegistrations)
@@ -309,6 +381,9 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         // 遍历所有报名记录，查找包含该 token 的 MemberInvitations
         var allRegistrations = (await store.GetByPrefix<Registration>(RootPrefix, cancellationToken))
             .Select(item => item.Value)
+            .GroupBy(item => item.Id)
+            .Select(group => group.OrderByDescending(item => item.UpdateTime)
+                .ThenByDescending(item => item.Deleted).First())
             .Where(item => !item.Deleted && !string.IsNullOrEmpty(item.MemberInvitations));
 
         foreach (var registration in allRegistrations)
@@ -333,16 +408,10 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
 
     public async Task UpdateRegistration(Registration registration, CancellationToken token = default)
     {
-        if (registration.TeamId.HasValue)
-        {
-            await store.Set(Key(registration.GameId, registration.TeamId.Value), registration, token);
-        }
-        else if (!string.IsNullOrEmpty(registration.CaptainEmail))
-        {
-            // 无登录报名使用 email 作为 key
-            var emailKey = $"{RootPrefix}{registration.GameId}:email:{registration.CaptainEmail}";
-            await store.Set(emailKey, registration, token);
-        }
+        var key = await ResolveWriteKey(registration, token);
+        await store.ReplaceByPrefixAndValue(RootPrefix,
+            item => item.Id == registration.Id && item.GameId == registration.GameId,
+            key, registration, token);
     }
 
     private static string Escape(object? value)

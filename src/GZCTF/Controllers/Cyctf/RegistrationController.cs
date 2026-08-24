@@ -483,10 +483,9 @@ public class RegistrationController(
         if (game is null)
             return NotFound(new RequestResponse("比赛不存在"));
 
+        var previousStatus = registration.Status;
         registration = await registrationRepository.UpdateRegistrationStatus(id, "CANCELLED", null, null, token) ?? registration;
-        var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
-        if (extension is not null && extension.CurrentTeams > 0)
-            await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams - 1, token);
+        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
 
         await transaction.CommitAsync(token);
         await cache.RemoveAsync(queryKey, token);
@@ -570,7 +569,7 @@ public class RegistrationController(
         var registration = await registrationRepository.GetRegistrationById(id, token);
         if (registration is null)
             return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
-        var wasCancelled = string.Equals(registration.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase);
+        var previousStatus = registration.Status;
         if (!string.Equals(request.Status, "APPROVED", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(request.Status, "REJECTED", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new RequestResponse("审核状态必须为 APPROVED 或 REJECTED"));
@@ -588,18 +587,20 @@ public class RegistrationController(
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             Guid.TryParse(userId, out var reviewerId);
 
-            // 拒绝时只更新状态
+            // 拒绝时同步释放可能由旧版审核创建的参赛关系。
             if (string.Equals(request.Status, "REJECTED", StringComparison.OrdinalIgnoreCase))
             {
+                await using var rejectionTransaction = await db.Database.BeginTransactionAsync(token);
+                await ReleaseRegistrationParticipation(registration, token);
                 registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
                     reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
-                
+                await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
+                await rejectionTransaction.CommitAsync(token);
+
                 // 发送拒绝通知邮件给队长
                 if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
-                {
                     QueueNoAuthRejectionNotification(game, registration.CaptainEmail, division, request.ReviewNote);
-                }
-                
+
                 return Ok(RegistrationResponse.FromEntity(registration));
             }
 
@@ -638,53 +639,54 @@ public class RegistrationController(
                 }
             }
 
+            var registrationEmails = new[] { registration.CaptainEmail }
+                .Concat(invitations?.Select(inv => inv.Email) ?? [])
+                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Select(email => email.Trim().ToLowerInvariant())
+                .ToList();
+            if (registrationEmails.Count != registrationEmails.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+                return BadRequest(new RequestResponse("队长和队员邮箱不能重复"));
+
             await using var approvalTransaction = await db.Database.BeginTransactionAsync(token);
 
             try
             {
-                // 1. 创建队长账号
-                var captainPassword = Codec.RandomPassword(16);
-                var captain = new UserInfo
-                {
-                    UserName = registration.CaptainEmail.Split('@')[0],
-                    Email = registration.CaptainEmail,
-                    EmailConfirmed = true,
-                    Role = Role.User
-                };
-                captain.UpdateByHttpContext(HttpContext);
-
-                var captainResult = await userManager.CreateAsync(captain, captainPassword);
-                if (!captainResult.Succeeded)
+                // 1. 获取或创建队长账号。历史报名产生的账号继续复用。
+                var captainProvision = await GetOrCreateRegistrationAccount(registration.CaptainEmail, token);
+                if (captainProvision.User is null)
                 {
                     await approvalTransaction.RollbackAsync(token);
-                    return BadRequest(new RequestResponse($"创建队长账号失败: {string.Join(", ", captainResult.Errors.Select(e => e.Description))}"));
+                    return BadRequest(new RequestResponse($"创建队长账号失败: {captainProvision.Error}"));
                 }
 
-                // 2. 创建队员账号
-                var memberUsers = new List<(UserInfo user, string password)>();
+                var captain = captainProvision.User;
+                captain.EmailConfirmed = true;
+
+                // 2. 获取或创建队员账号
+                var memberUsers = new List<(UserInfo user, string? password, bool created)>();
                 if (invitations != null && invitations.Any())
                 {
                     foreach (var invitation in invitations)
                     {
-                        var memberPassword = Codec.RandomPassword(16);
-                        var member = new UserInfo
-                        {
-                            UserName = invitation.Email.Split('@')[0],
-                            Email = invitation.Email,
-                            EmailConfirmed = true,
-                            Role = Role.User
-                        };
-                        member.UpdateByHttpContext(HttpContext);
-
-                        var memberResult = await userManager.CreateAsync(member, memberPassword);
-                        if (!memberResult.Succeeded)
+                        var memberProvision = await GetOrCreateRegistrationAccount(invitation.Email, token);
+                        if (memberProvision.User is null)
                         {
                             await approvalTransaction.RollbackAsync(token);
-                            return BadRequest(new RequestResponse($"创建队员账号失败 ({invitation.Email}): {string.Join(", ", memberResult.Errors.Select(e => e.Description))}"));
+                            return BadRequest(new RequestResponse($"创建队员账号失败 ({invitation.Email}): {memberProvision.Error}"));
                         }
 
-                        memberUsers.Add((member, memberPassword));
+                        memberProvision.User.EmailConfirmed = true;
+                        memberUsers.Add((memberProvision.User, memberProvision.Password, memberProvision.Created));
                     }
+                }
+
+                var allUsers = new List<UserInfo> { captain };
+                allUsers.AddRange(memberUsers.Select(m => m.user));
+                var historicalParticipationError = await ReleaseHistoricalRegistrationParticipation(registration, allUsers, token);
+                if (historicalParticipationError is not null)
+                {
+                    await approvalTransaction.RollbackAsync(token);
+                    return BadRequest(new RequestResponse(historicalParticipationError));
                 }
 
                 // 3. 创建队伍
@@ -701,7 +703,7 @@ public class RegistrationController(
                 }
 
                 // 4. 添加队员到队伍
-                foreach (var (memberUser, _) in memberUsers)
+                foreach (var (memberUser, _, _) in memberUsers)
                 {
                     newTeam.Members.Add(memberUser);
                 }
@@ -712,14 +714,12 @@ public class RegistrationController(
                 {
                     Game = game,
                     Team = newTeam,
+                    Token = gameRepository.GetToken(game, newTeam),
                     Division = division,
-                    Status = ParticipationStatus.Accepted
+                    Status = ParticipationStatus.Pending
                 };
                 await db.Participations.AddAsync(newParticipation, token);
                 await db.SaveChangesAsync(token);
-
-                var allUsers = new List<UserInfo> { captain };
-                allUsers.AddRange(memberUsers.Select(m => m.user));
 
                 foreach (var user in allUsers)
                 {
@@ -733,31 +733,31 @@ public class RegistrationController(
                     await db.UserParticipations.AddAsync(userParticipation, token);
                 }
                 await db.SaveChangesAsync(token);
+                await participationRepository.UpdateParticipationStatus(newParticipation,
+                    ParticipationStatus.Accepted, token);
 
                 // 6. 更新报名记录关联队伍
                 registration.TeamId = newTeam.Id;
-                registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
+                registration = await registrationRepository.UpdateRegistrationStatus(registration, request.Status, request.ReviewNote,
                     reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
 
-                // 7. 取消状态曾释放名额，重新通过时恢复当前队伍数
-                if (wasCancelled)
-                {
-                    var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
-                    if (extension is not null)
-                        await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams + 1, token);
-                }
+                // 7. 根据审核前后的状态同步报名名额。
+                await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
 
                 await approvalTransaction.CommitAsync(token);
 
-                // 8. 发送账号密码邮件
-                QueueAccountCreationEmail(game, captain.Email, captain.UserName, captainPassword, registration.TeamName);
-                foreach (var (memberUser, memberPassword) in memberUsers)
+                // 8. 仅为本次新建的账号发送初始密码；历史账号直接复用。
+                if (captainProvision.Created)
+                    QueueAccountCreationEmail(game, captain.Email!, captain.UserName!, captainProvision.Password!, registration.TeamName!);
+                foreach (var (memberUser, memberPassword, created) in memberUsers)
                 {
-                    QueueAccountCreationEmail(game, memberUser.Email, memberUser.UserName, memberPassword, registration.TeamName);
+                    if (created)
+                        QueueAccountCreationEmail(game, memberUser.Email!, memberUser.UserName!, memberPassword!, registration.TeamName!);
                 }
 
                 // 9. 处理邮箱冲突：从其他未审核报名中移除重复邮箱
-                await HandleEmailConflicts(registration, allUsers.Select(u => u.Email).ToList(), token);
+                await HandleEmailConflicts(registration,
+                    allUsers.Select(user => user.Email).OfType<string>().ToList(), token);
 
                 return Ok(RegistrationResponse.FromEntity(registration));
             }
@@ -792,18 +792,14 @@ public class RegistrationController(
         }
         else
         {
+            // 保留历史成员关系，允许管理员之后重新审核同一条报名；新报名审核时会清理已释放关系。
             await participationRepository.UpdateParticipationStatus(participation,
                 ParticipationStatus.Rejected, token);
         }
 
         registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
             reviewerId2 == Guid.Empty ? null : reviewerId2, token) ?? registration;
-        if (wasCancelled && string.Equals(request.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
-        {
-            var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
-            if (extension is not null)
-                await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams + 1, token);
-        }
+        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
 
         await transaction.CommitAsync(token);
         QueueRegistrationNotification(game, team, division, registration.Status, registration.ReviewNote);
@@ -819,6 +815,7 @@ public class RegistrationController(
             return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
         if (registration.Status == "CANCELLED")
             return Ok(RegistrationResponse.FromEntity(registration));
+        var previousStatus = registration.Status;
 
         var game = await gameRepository.GetGameById(registration.GameId, token);
         if (game is null)
@@ -826,21 +823,11 @@ public class RegistrationController(
 
         await using var transaction = await db.Database.BeginTransactionAsync(token);
 
-        // 有队伍的报名需要取消 Participation
-        if (registration.TeamId.HasValue)
-        {
-            var participation = await db.Participations
-                .Include(p => p.Members)
-                .FirstOrDefaultAsync(p => p.GameId == registration.GameId && p.TeamId == registration.TeamId.Value, token);
-            if (participation is not null)
-                await participationRepository.UpdateParticipationStatus(participation,
-                    ParticipationStatus.Rejected, token);
-        }
+        // 取消关联参赛记录，但保留历史成员关系，供原报名重新审核时复用。
+        await ReleaseRegistrationParticipation(registration, token);
 
         registration = await registrationRepository.UpdateRegistrationStatus(id, "CANCELLED", null, null, token) ?? registration;
-        var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
-        if (extension is not null && extension.CurrentTeams > 0)
-            await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams - 1, token);
+        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
         await transaction.CommitAsync(token);
 
         // 通知逻辑：有队伍用队伍通知，无队伍用邮箱通知
@@ -881,11 +868,17 @@ public class RegistrationController(
         var registration = await registrationRepository.GetRegistrationById(id, token);
         if (registration is null)
             return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+        var previousStatus = registration.Status;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        await ReleaseRegistrationParticipation(registration, token);
 
         var success = await registrationRepository.DeleteRegistration(id, token);
         if (!success)
             return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
 
+        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "DELETED", token);
+        await transaction.CommitAsync(token);
         return Ok(new RequestResponse("报名记录已删除", StatusCodes.Status200OK));
     }
 
@@ -989,6 +982,225 @@ public class RegistrationController(
         {
             logger.LogError(exception, "Failed to queue CYCTF no-auth rejection notification for email {Email}.", email);
         }
+    }
+
+    private static bool OccupiesRegistrationSlot(string status) =>
+        status is "PENDING" or "APPROVED";
+
+    private async Task UpdateRegistrationTeamCount(int gameId, string previousStatus, string nextStatus,
+        CancellationToken token)
+    {
+        var previousOccupied = OccupiesRegistrationSlot(previousStatus.ToUpperInvariant());
+        var nextOccupied = OccupiesRegistrationSlot(nextStatus.ToUpperInvariant());
+        if (previousOccupied == nextOccupied)
+            return;
+
+        var extension = await gameExtensionRepository.GetGameExtensionByGameId(gameId, token);
+        if (extension is null)
+            return;
+
+        var delta = nextOccupied ? 1 : -1;
+        await gameExtensionRepository.UpdateCurrentTeams(gameId, extension.CurrentTeams + delta, token);
+    }
+
+    private async Task<(UserInfo? User, string? Password, bool Created, string? Error)> GetOrCreateRegistrationAccount(
+        string email, CancellationToken token)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var existing = await userManager.FindByEmailAsync(normalizedEmail);
+        if (existing is not null)
+            return (existing, null, false, null);
+
+        var localPart = normalizedEmail.Split('@', 2)[0];
+        var baseUsername = string.IsNullOrWhiteSpace(localPart) ? "user" : localPart;
+        if (baseUsername.Length < global::GZCTF.Models.Limits.MinUserNameLength)
+            baseUsername = baseUsername.PadRight(global::GZCTF.Models.Limits.MinUserNameLength, '0');
+        if (baseUsername.Length > global::GZCTF.Models.Limits.MaxUserNameLength)
+            baseUsername = baseUsername[..global::GZCTF.Models.Limits.MaxUserNameLength];
+
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var suffix = attempt == 0 ? string.Empty : attempt.ToString();
+            var prefixLength = Math.Max(1, global::GZCTF.Models.Limits.MaxUserNameLength - suffix.Length);
+            var username = baseUsername[..Math.Min(baseUsername.Length, prefixLength)] + suffix;
+            var password = Codec.RandomPassword(16);
+            var candidate = new UserInfo
+            {
+                UserName = username,
+                Email = normalizedEmail,
+                EmailConfirmed = true,
+                Role = Role.User
+            };
+            candidate.UpdateByHttpContext(HttpContext);
+
+            var result = await userManager.CreateAsync(candidate, password);
+            if (result.Succeeded)
+                return (candidate, password, true, null);
+
+            db.Entry(candidate).State = EntityState.Detached;
+            existing = await userManager.FindByEmailAsync(normalizedEmail);
+            if (existing is not null)
+                return (existing, null, false, null);
+
+            if (!result.Errors.Any(error => error.Code == "DuplicateUserName"))
+                return (null, null, false, string.Join(", ", result.Errors.Select(error => error.Description)));
+        }
+
+        return (null, null, false, "无法生成唯一用户名");
+    }
+
+    private static IReadOnlyList<string> GetRegistrationParticipantEmails(Registration registration)
+    {
+        var emails = new List<string>();
+        if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
+            emails.Add(registration.CaptainEmail);
+
+        if (string.IsNullOrWhiteSpace(registration.MemberInvitations))
+            return emails;
+
+        try
+        {
+            var invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(registration.MemberInvitations);
+            if (invitations is not null)
+                emails.AddRange(invitations
+                    .Where(invitation => !string.IsNullOrWhiteSpace(invitation.Email))
+                    .Select(invitation => invitation.Email));
+        }
+        catch (JsonException)
+        {
+            // Invalid historical invitation data cannot be used to infer a released team.
+        }
+
+        return emails;
+    }
+
+    private async Task<HashSet<int>> ResolveRegistrationTeamIds(IEnumerable<Registration> registrations,
+        CancellationToken token, bool inferReleasedLegacyRecords = false)
+    {
+        var records = registrations.ToList();
+        var teamIds = records
+            .Where(registration => registration.TeamId.HasValue)
+            .Select(registration => registration.TeamId!.Value)
+            .ToHashSet();
+        var legacyRecords = records
+            .Where(registration => !registration.TeamId.HasValue &&
+                                   !string.IsNullOrWhiteSpace(registration.CaptainEmail) &&
+                                   !string.IsNullOrWhiteSpace(registration.TeamName) &&
+                                   (string.Equals(registration.Status, "APPROVED", StringComparison.OrdinalIgnoreCase) ||
+                                    inferReleasedLegacyRecords &&
+                                    (registration.Deleted ||
+                                     registration.Status is "CANCELLED" or "REJECTED")))
+            .ToList();
+        if (legacyRecords.Count == 0)
+            return teamIds;
+
+        var normalizedEmails = legacyRecords
+            .Select(registration => registration.CaptainEmail!.Trim().ToUpperInvariant())
+            .ToHashSet();
+        var captains = await db.Users
+            .Where(user => user.NormalizedEmail != null && normalizedEmails.Contains(user.NormalizedEmail))
+            .Select(user => new { user.Id, user.NormalizedEmail })
+            .ToListAsync(token);
+        var teamNamesByCaptain = legacyRecords
+            .GroupBy(registration => registration.CaptainEmail!.Trim().ToUpperInvariant())
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(registration => registration.TeamName!.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase));
+        var captainEmailsById = captains.ToDictionary(captain => captain.Id, captain => captain.NormalizedEmail!);
+        var captainIds = captainEmailsById.Keys.ToArray();
+        if (captainIds.Length == 0)
+            return teamIds;
+
+        var legacyTeams = await db.Teams
+            .Where(team => captainIds.Contains(team.CaptainId))
+            .Select(team => new { team.Id, team.CaptainId, team.Name })
+            .ToListAsync(token);
+        foreach (var team in legacyTeams)
+        {
+            if (captainEmailsById.TryGetValue(team.CaptainId, out var email) &&
+                teamNamesByCaptain[email].Contains(team.Name))
+                teamIds.Add(team.Id);
+        }
+
+        return teamIds;
+    }
+
+    private async Task<string?> ReleaseHistoricalRegistrationParticipation(
+        Registration currentRegistration, IReadOnlyCollection<UserInfo> users, CancellationToken token)
+    {
+        var userIds = users.Select(user => user.Id).Distinct().ToArray();
+        if (userIds.Length == 0)
+            return null;
+
+        var userEmails = users
+            .Where(user => !string.IsNullOrWhiteSpace(user.Email))
+            .Select(user => user.Email!.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var historicalRegistrations = await registrationRepository
+            .GetRegistrationsByGameIdIncludingDeleted(currentRegistration.GameId, token);
+        var releasedRegistrations = historicalRegistrations
+            .Where(registration => registration.Deleted ||
+                                   string.Equals(registration.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase) ||
+                                   string.Equals(registration.Status, "REJECTED", StringComparison.OrdinalIgnoreCase))
+            .Where(registration => GetRegistrationParticipantEmails(registration)
+                .Any(email => userEmails.Contains(email.Trim())))
+            .ToList();
+        var releasedTeamIds = await ResolveRegistrationTeamIds(releasedRegistrations, token, inferReleasedLegacyRecords: true);
+        var activeRegistrations = historicalRegistrations
+            .Where(registration => !registration.Deleted &&
+                                   registration.Status is "PENDING" or "APPROVED" &&
+                                   registration.Id != currentRegistration.Id)
+            .ToList();
+        var activeTeamIds = await ResolveRegistrationTeamIds(activeRegistrations, token);
+        releasedTeamIds.ExceptWith(activeTeamIds);
+
+        var relations = await db.UserParticipations
+            .Include(item => item.Participation)
+            .Where(item => item.GameId == currentRegistration.GameId && userIds.Contains(item.UserId))
+            .ToListAsync(token);
+        var changed = false;
+        foreach (var relation in relations)
+        {
+            var released = relation.Participation.Status == ParticipationStatus.Rejected ||
+                           releasedTeamIds.Contains(relation.TeamId);
+            if (!released)
+            {
+                var user = users.FirstOrDefault(item => item.Id == relation.UserId);
+                return $"邮箱 {user?.Email ?? user?.UserName ?? relation.UserId.ToString()} 对应账号仍参加该比赛";
+            }
+
+            db.UserParticipations.Remove(relation);
+            relation.Participation.Members.Remove(relation);
+            relation.Participation.Status = ParticipationStatus.Rejected;
+            relation.Participation.Division = null;
+            relation.Participation.DivisionId = null;
+            changed = true;
+        }
+
+        if (changed)
+            await db.SaveChangesAsync(token);
+        return null;
+    }
+
+    private async Task ReleaseRegistrationParticipation(Registration registration, CancellationToken token)
+    {
+        var teamIds = await ResolveRegistrationTeamIds([registration], token, inferReleasedLegacyRecords: true);
+        if (teamIds.Count == 0)
+            return;
+
+        var participations = await db.Participations
+            .Where(item => item.GameId == registration.GameId && teamIds.Contains(item.TeamId))
+            .ToListAsync(token);
+        foreach (var participation in participations)
+        {
+            participation.Status = ParticipationStatus.Rejected;
+            participation.Division = null;
+            participation.DivisionId = null;
+        }
+
+        if (participations.Count > 0)
+            await db.SaveChangesAsync(token);
     }
 
     private void QueueAccountCreationEmail(Game game, string email, string username, string password, string teamName)

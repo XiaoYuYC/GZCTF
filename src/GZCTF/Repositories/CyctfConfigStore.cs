@@ -66,6 +66,49 @@ public sealed class CyctfConfigStore(AppDbContext context)
         await context.SaveChangesAsync(token);
         return true;
     }
+    public async Task<int> ReplaceByPrefixAndValue<T>(string prefix, Func<T, bool> predicate,
+        string key, T value, CancellationToken token = default)
+    {
+        var configs = await context.Configs
+            .Where(item => item.ConfigKey.StartsWith(prefix))
+            .ToListAsync(token);
+        var matched = new List<Config>();
+        Config? destination = null;
+        foreach (var config in configs)
+        {
+            if (config.ConfigKey == key)
+                destination = config;
+            if (config.Value is null)
+                continue;
+
+            try
+            {
+                var current = JsonSerializer.Deserialize<T>(config.Value, JsonOptions);
+                if (current is not null && predicate(current))
+                    matched.Add(config);
+            }
+            catch (JsonException)
+            {
+                // Ignore unrelated or malformed values in the shared keyspace.
+            }
+        }
+
+        var serialized = JsonSerializer.Serialize(value, JsonOptions);
+        if (destination is null)
+        {
+            destination = new Config(key, serialized);
+            await context.Configs.AddAsync(destination, token);
+        }
+        else
+        {
+            destination.Value = serialized;
+        }
+
+        context.Configs.RemoveRange(matched.Where(item => item.ConfigKey != key));
+        await context.SaveChangesAsync(token);
+        return matched.Count;
+    }
+
 
     public async Task<int> NextId(string prefix, CancellationToken token = default)
     {
