@@ -1,5 +1,7 @@
 using GZCTF.Middlewares;
 using GZCTF.Models.Request.Cyctf;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using GZCTF.Models.Response.Cyctf;
 using GZCTF.Repositories.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -52,6 +54,9 @@ public class DivisionExtensionController(
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateOrUpdateDivisionExtension(int divisionId, [FromBody] DivisionExtensionRequest request, CancellationToken token)
     {
+        if (!TryValidateRegistrationFieldPatterns(request.RegistrationFields, out var patternError))
+            return BadRequest(new RequestResponse(patternError!));
+
         var extension = new Models.Data.Cyctf.DivisionExtension
         {
             DivisionId = divisionId,
@@ -62,6 +67,97 @@ public class DivisionExtensionController(
 
         var result = await divisionExtensionRepository.CreateOrUpdateDivisionExtension(extension, token);
         return Ok(DivisionExtensionResponse.FromEntity(result));
+    }
+
+    private static bool TryValidateRegistrationFieldPatterns(string? raw, out string? error)
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(raw))
+            return true;
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            foreach (var field in GetRegistrationFieldObjects(document.RootElement))
+            {
+                if (!TryGetPropertyIgnoreCase(field, "pattern", out var pattern) ||
+                    pattern.ValueKind != JsonValueKind.String ||
+                    string.IsNullOrWhiteSpace(pattern.GetString()))
+                    continue;
+
+                try
+                {
+                    _ = new Regex(pattern.GetString()!, RegexOptions.CultureInvariant,
+                        TimeSpan.FromMilliseconds(250));
+                }
+                catch (ArgumentException)
+                {
+                    var label = GetStringProperty(field, "label") ?? "未命名字段";
+                    error = $"字段“{label}”的内容正则无效";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            error = "报名字段配置不是有效 JSON";
+            return false;
+        }
+    }
+
+    private static IEnumerable<JsonElement> GetRegistrationFieldObjects(JsonElement schema)
+    {
+        if (schema.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var field in schema.EnumerateArray())
+            {
+                if (field.ValueKind == JsonValueKind.Object)
+                    yield return field;
+            }
+
+            yield break;
+        }
+
+        if (schema.ValueKind != JsonValueKind.Object)
+            yield break;
+
+        if (TryGetPropertyIgnoreCase(schema, "fields", out var fields) && fields.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var field in GetRegistrationFieldObjects(fields))
+                yield return field;
+            yield break;
+        }
+
+        foreach (var property in schema.EnumerateObject())
+        {
+            if (property.Value.ValueKind == JsonValueKind.Object)
+                yield return property.Value;
+        }
+    }
+
+    private static string? GetStringProperty(JsonElement element, string name) =>
+        TryGetPropertyIgnoreCase(element, name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string name, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     /// <summary>

@@ -50,6 +50,13 @@ const Register: FC = () => {
         message: t('common.email.sent.message'),
       },
     ],
+    [
+      RegisterStatus.AdminOnlyLogin,
+      {
+        title: '注册成功',
+        message: '当前仅允许管理员登录，请联系管理员',
+      },
+    ],
     [undefined, undefined],
   ])
 

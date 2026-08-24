@@ -1,6 +1,8 @@
 using System;
 using System.Reflection;
 using GZCTF.Controllers.Cyctf;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using GZCTF.Middlewares;
 using Xunit;
 
@@ -42,7 +44,21 @@ public class CyctfAuthorizationTests
         var method = typeof(RegistrationController).GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
 
         Assert.NotNull(method);
-        Assert.NotNull(method!.GetCustomAttribute<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>());
+        Assert.NotNull(method!.GetCustomAttribute<AuthorizeAttribute>());
         Assert.Null(method.GetCustomAttribute<RequireAdminAttribute>());
+    }
+
+    [Theory]
+    [InlineData(nameof(RegistrationController.RegisterTeamNoAuth), "no-auth")]
+    [InlineData(nameof(RegistrationController.QueryRegistration), "query")]
+    [InlineData(nameof(RegistrationController.RefreshRegistrationQuery), "refresh")]
+    public void AnonymousRegistrationQueryEndpoints_UseExpectedRoutes(string methodName, string route)
+    {
+        var method = typeof(RegistrationController).GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.NotNull(method);
+        Assert.NotNull(method!.GetCustomAttribute<AllowAnonymousAttribute>());
+        Assert.Null(method.GetCustomAttribute<AuthorizeAttribute>());
+        Assert.Equal(route, method.GetCustomAttribute<HttpPostAttribute>()?.Template);
     }
 }

@@ -28,7 +28,6 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { GameJoinModal } from '@Components/GameJoinModal'
 import { GameProgress } from '@Components/GameProgress'
 import { Markdown } from '@Components/MarkdownRenderer'
-import { RegistrationQueryModal } from '@Components/RegistrationQueryModal'
 import { WithNavBar } from '@Components/WithNavbar'
 import { useLanguage } from '@Utils/I18n'
 import { showErrorMsg } from '@Utils/Shared'
@@ -157,9 +156,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
   }, [numId])
 
   const { scrollIntoView, targetRef } = useScrollIntoView<HTMLDivElement>()
-
   const [joinModalOpen, setJoinModalOpen] = useState(false)
-  const [registrationQueryOpen, setRegistrationQueryOpen] = useState(false)
 
   useEffect(() => scrollIntoView({ alignment: 'center' }), [scrollIntoView])
 
@@ -259,7 +256,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
           <Button component={Link} to={`/games/${numId}/registration`}>
             报名
           </Button>
-          <Button variant="light" onClick={() => setRegistrationQueryOpen(true)}>
+          <Button variant="light" component={Link} to={`/games/${numId}/registrationquery`}>
             报名查询
           </Button>
         </Group>
@@ -600,13 +597,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
             onSubmitJoin={onSubmitJoin}
           />
         )}
-        {cyctfEnabled === true && (
-          <RegistrationQueryModal
-            gameId={numId}
-            opened={registrationQueryOpen}
-            onClose={() => setRegistrationQueryOpen(false)}
-          />
-        )}
+        {/* 报名查询使用独立页面 */}
       </Container>
     </WithNavBar>
   )

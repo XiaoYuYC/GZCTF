@@ -86,12 +86,23 @@ public class AccountController(
         {
             user.EmailConfirmed = true;
             await userManager.UpdateAsync(user);
-            await signInManager.SignInAsync(user, true);
 
-            logger.Log(StaticLocalizer[nameof(Resources.Program.Account_UserRegisteredLog)], user,
+            if (!IsAdminOnlyLoginRestricted(user))
+            {
+                await signInManager.SignInAsync(user, true);
+
+                logger.Log(StaticLocalizer[nameof(Resources.Program.Account_UserRegisteredLog)], user,
+                    TaskStatus.Success);
+                return Ok(new RequestResponse<RegisterStatus>(localizer[nameof(Resources.Program.Account_UserRegistered)],
+                    RegisterStatus.LoggedIn,
+                    StatusCodes.Status200OK));
+            }
+
+            logger.Log(StaticLocalizer[nameof(Resources.Program.Account_UserRegisteredWaitingApprovalLog)], user,
                 TaskStatus.Success);
-            return Ok(new RequestResponse<RegisterStatus>(localizer[nameof(Resources.Program.Account_UserRegistered)],
-                RegisterStatus.LoggedIn,
+            return Ok(new RequestResponse<RegisterStatus>(
+                "注册成功，当前仅允许管理员登录",
+                RegisterStatus.AdminOnlyLogin,
                 StatusCodes.Status200OK));
         }
 
@@ -252,10 +263,13 @@ public class AccountController(
                 StatusCodes.Status401Unauthorized));
 
         logger.Log(StaticLocalizer[nameof(Resources.Program.Account_EmailVerified)], user, TaskStatus.Success);
-        await signInManager.SignInAsync(user, true);
+        if (!IsAdminOnlyLoginRestricted(user))
+        {
+            await signInManager.SignInAsync(user, true);
+            user.LastSignedInUtc = DateTimeOffset.UtcNow;
+            user.LastVisitedUtc = DateTimeOffset.UtcNow;
+        }
 
-        user.LastSignedInUtc = DateTimeOffset.UtcNow;
-        user.LastVisitedUtc = DateTimeOffset.UtcNow;
         user.RegisterTimeUtc = DateTimeOffset.UtcNow;
 
         result = await userManager.UpdateAsync(user);
@@ -302,16 +316,21 @@ public class AccountController(
             return Unauthorized(new RequestResponse(localizer[nameof(Resources.Program.Account_UserDisabled)],
                 StatusCodes.Status401Unauthorized));
 
-        user.LastSignedInUtc = DateTimeOffset.UtcNow;
-        user.UpdateByHttpContext(HttpContext);
-
-        await signInManager.SignOutAsync();
-        var result = await signInManager.PasswordSignInAsync(user, password, true, false);
-
+        var result = await signInManager.CheckPasswordSignInAsync(user, password, true);
         if (!result.Succeeded)
             return Unauthorized(new RequestResponse(
                 localizer[nameof(Resources.Program.Account_IncorrectUserNameOrPassword)],
                 StatusCodes.Status401Unauthorized));
+
+        if (IsAdminOnlyLoginRestricted(user))
+            return Unauthorized(new RequestResponse(localizer[nameof(Resources.Program.Account_AdminOnlyLogin)],
+                StatusCodes.Status401Unauthorized));
+
+        user.LastSignedInUtc = DateTimeOffset.UtcNow;
+        user.UpdateByHttpContext(HttpContext);
+
+        await signInManager.SignOutAsync();
+        await signInManager.SignInAsync(user, true);
 
         logger.Log(StaticLocalizer[nameof(Resources.Program.Account_UserLogined)], user, TaskStatus.Success);
 
@@ -559,6 +578,9 @@ public class AccountController(
 
         return Ok(avatar.Url());
     }
+
+    private bool IsAdminOnlyLoginRestricted(UserInfo user) =>
+        !accountPolicy.Value.CanCreateSignInSession(user.Role);
 
     private string GetEmailLink(string action, string token, string? email)
         => $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/account/{action}?" +

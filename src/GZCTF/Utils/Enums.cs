@@ -49,7 +49,12 @@ public enum RegisterStatus : byte
     /// <summary>
     /// Waiting for email confirmation
     /// </summary>
-    EmailConfirmationRequired = 2
+    EmailConfirmationRequired = 2,
+
+    /// <summary>
+    /// Account created while sign-in is restricted to administrators
+    /// </summary>
+    AdminOnlyLogin = 3
 }
 
 /// <summary>

@@ -24,7 +24,7 @@ import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
 import { FC, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { useCaptchaRef } from '@Components/Captcha'
 import { VerificationCaptchaModal } from '@Components/VerificationCaptchaModal'
 import { showErrorMsg } from '@Utils/Shared'
@@ -41,6 +41,8 @@ type RegistrationField = {
   type: RegistrationFieldType
   scope: RegistrationFieldScope
   required: boolean
+  unique: boolean
+  pattern?: string
   description?: string
   placeholder?: string
 }
@@ -105,6 +107,8 @@ const parseFieldSchema = (raw: string | null | undefined): ParsedFieldSchema => 
         type,
         scope,
         required: item.required === true,
+        unique: item.unique === true,
+        pattern: typeof item.pattern === 'string' ? item.pattern : undefined,
         description:
           typeof item.description === 'string'
             ? item.description
@@ -140,13 +144,60 @@ const parseFormObject = (raw: string): Record<string, FieldValue> => {
 const isEmptyFieldValue = (value: FieldValue | undefined) =>
   value === undefined || (typeof value === 'string' && value.trim().length === 0)
 
+const fieldValueToText = (value: FieldValue | undefined) => {
+  if (value === undefined || (typeof value === 'string' && value.trim().length === 0)) return null
+  return String(value).trim()
+}
+
+const validatePattern = (field: RegistrationField, value: FieldValue | undefined, subject: string) => {
+  const text = fieldValueToText(value)
+  if (!text || !field.pattern?.trim()) return null
+  try {
+    return new RegExp(field.pattern).test(text) ? null : `${subject}的报名字段“${field.label}”格式不正确`
+  } catch {
+    return `报名字段“${field.label}”的内容正则无效`
+  }
+}
+
+const validateRegistrationFields = (
+  teamFields: RegistrationField[],
+  memberFields: RegistrationField[],
+  fieldValues: Record<string, FieldValue>,
+  members: MemberFormData[]
+) => {
+  for (const field of teamFields) {
+    const error = validatePattern(field, fieldValues[field.name], '队伍')
+    if (error) return error
+  }
+
+  for (const field of memberFields) {
+    const values = [
+      { value: fieldValues[field.name], subject: '队长' },
+      ...members.map((member, index) => ({ value: member.fields[field.name], subject: `队员 ${index + 1}` })),
+    ]
+    const seen = new Set<string>()
+
+    for (const item of values) {
+      const error = validatePattern(field, item.value, item.subject)
+      if (error) return error
+      if (!field.unique) continue
+      const text = fieldValueToText(item.value)
+      if (!text) continue
+      if (!seen.add(text.toLocaleLowerCase())) return `报名字段“${field.label}”的内容不能重复`
+    }
+  }
+
+  return null
+}
+
 const GameRegistration: FC = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
   const numId = parseInt(id ?? '-1')
   const { game } = useGame(numId)
   const { user } = useUser()
   const { t } = useTranslation()
-  const { captchaRef, getToken, cleanUp } = useCaptchaRef()
+  const { getToken } = useCaptchaRef()
 
   const [extension, setExtension] = useState<GameExtensionResponse | null>(null)
   const [registration, setRegistration] = useState<RegistrationResponse | null>(null)
@@ -594,6 +645,16 @@ const GameRegistration: FC = () => {
       }
     }
 
+    const fieldValidationError = validateRegistrationFields(teamFields, memberFields, fieldValues, members)
+    if (fieldValidationError) {
+      showNotification({
+        color: 'red',
+        message: fieldValidationError,
+        icon: <Icon path={mdiAlertCircle} size={1} />,
+      })
+      return
+    }
+
     let submittedFormData = formData.trim() || null
     if (!fieldSchema.error && (teamFields.length > 0 || memberFields.length > 0)) {
       // 验证队伍字段必填项
@@ -660,7 +721,7 @@ const GameRegistration: FC = () => {
           })
         : undefined
 
-      const response = await api.registration.registrationRegisterTeam({
+      const registrationRequest = {
         gameId: numId,
         teamName: teamName.trim(),
         teamBio: teamBio.trim() || null,
@@ -670,7 +731,10 @@ const GameRegistration: FC = () => {
         verificationCode: !user ? verificationCode.trim() : undefined,
         members: membersData,
         challenge: !user ? token : undefined,
-      })
+      }
+      const response = user
+        ? await api.registration.registrationRegisterTeam(registrationRequest)
+        : await api.registration.registrationRegisterTeamNoAuth(registrationRequest)
 
       setRegistration(response.data)
       showNotification({
@@ -724,7 +788,12 @@ const GameRegistration: FC = () => {
   return (
     <Container size="md" py="xl">
       <Stack gap="lg">
-        <Title order={2}>比赛报名</Title>
+        <Group justify="space-between" align="center" wrap="wrap">
+          <Title order={2}>比赛报名</Title>
+          <Button variant="light" onClick={() => navigate(`/games/${numId}/registrationquery`)}>
+            报名查询
+          </Button>
+        </Group>
 
         <Card shadow="sm" padding="lg">
           <Stack gap="md">

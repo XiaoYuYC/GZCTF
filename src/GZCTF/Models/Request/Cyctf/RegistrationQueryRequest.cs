@@ -9,3 +9,11 @@ public class RegistrationQueryRequest
     public string Email { get; set; } = string.Empty;
     public string VerificationCode { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// 使用临时查询凭证刷新报名状态
+/// </summary>
+public class RegistrationQueryRefreshRequest
+{
+    public string AccessToken { get; set; } = string.Empty;
+}

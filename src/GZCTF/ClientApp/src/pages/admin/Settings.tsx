@@ -389,6 +389,18 @@ const Configs: FC = () => {
                 })
               }
             />
+            <Switch
+              checked={accountPolicy?.adminOnlyLogin ?? false}
+              disabled={disabled}
+              label="仅允许管理员登录"
+              description="开启后，普通用户和监控员无法创建登录会话，管理员仍可登录并关闭此开关"
+              onChange={(e) =>
+                setAccountPolicy({
+                  ...accountPolicy,
+                  adminOnlyLogin: e.currentTarget.checked,
+                })
+              }
+            />
           </SimpleGrid>
           <TextInput
             label={t('admin.content.settings.account.email_domain_list.label')}

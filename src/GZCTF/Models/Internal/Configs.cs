@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using GZCTF.Extensions;
 using GZCTF.Services.Cache;
+using GZCTF.Utils;
 using MemoryPack;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Exporter;
@@ -59,6 +60,14 @@ public class AccountPolicy
     /// Email domain list, separated by commas
     /// </summary>
     public string EmailDomainList { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Restrict sign-in sessions to administrator accounts
+    /// </summary>
+    public bool AdminOnlyLogin { get; set; }
+
+    public bool CanCreateSignInSession(Role role) =>
+        role != Role.Banned && (!AdminOnlyLogin || role >= Role.Admin);
 }
 
 /// <summary>

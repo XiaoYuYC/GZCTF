@@ -149,6 +149,7 @@ export enum RegisterStatus {
   LoggedIn = "LoggedIn",
   AdminConfirmationRequired = "AdminConfirmationRequired",
   EmailConfirmationRequired = "EmailConfirmationRequired",
+  AdminOnlyLogin = "AdminOnlyLogin",
 }
 
 /** Request response */
@@ -374,6 +375,8 @@ export interface AccountPolicy {
   emailConfirmationRequired?: boolean;
   /** Email domain list, separated by commas */
   emailDomainList?: string;
+  /** Restrict sign-in sessions to administrator accounts */
+  adminOnlyLogin?: boolean;
 }
 
 /** Global settings */
@@ -2303,6 +2306,7 @@ export interface RegistrationResponse {
   /** @format int32 */
   teamId?: number | null;
   teamName?: string | null;
+  teamBio?: string | null;
   captainEmail?: string | null;
   /** @format int32 */
   divisionId?: number;
@@ -2320,6 +2324,8 @@ export interface RegistrationResponse {
   updateTime?: number;
   /** 是否全部成员接受邀请 */
   allMembersAccepted?: boolean;
+  /** 报名队员信息 */
+  members?: RegistrationMemberResponse[];
 }
 
 /** 报名请求 */
@@ -2429,6 +2435,11 @@ export interface RegistrationQueryRequest {
   verificationCode: string;
 }
 
+/** 使用临时查询凭证刷新报名状态 */
+export interface RegistrationQueryRefreshRequest {
+  accessToken: string;
+}
+
 /** 队长取消报名请求 */
 export interface RegistrationCaptainCancelRequest {
   accessToken: string;
@@ -2438,6 +2449,7 @@ export interface RegistrationCaptainCancelRequest {
 export interface RegistrationMemberResponse {
   email?: string;
   status?: string;
+  memberFields?: string | null;
   /** @format uint64 */
   sentAt?: number;
   /** @format uint64 */
@@ -2450,12 +2462,17 @@ export interface RegistrationQueryResponse {
   gameId?: number;
   gameTitle?: string | null;
   teamName?: string | null;
+  teamBio?: string | null;
   captainEmail?: string | null;
+  divisionId?: number;
   divisionName?: string | null;
   status?: string;
+  formData?: string | null;
   reviewNote?: string | null;
   /** @format uint64 */
   createTime?: number;
+  /** @format uint64 */
+  updateTime?: number;
   /** @format uint64 */
   reviewedAt?: number | null;
   accessToken?: string | null;
@@ -7206,6 +7223,19 @@ export class Api<
         ...params,
       }),
 
+    registrationRefreshRegistrationQuery: (
+      data: RegistrationQueryRefreshRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationQueryResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/refresh`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
     registrationCaptainCancelRegistration: (
       id: number,
       data: RegistrationCaptainCancelRequest,
@@ -7387,6 +7417,18 @@ export class Api<
     ) =>
       this.request<RegistrationResponse, RequestResponse>({
         path: `/api/cyctf/registrations`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+    registrationRegisterTeamNoAuth: (
+      data: RegistrationRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/no-auth`,
         method: "POST",
         body: data,
         type: ContentType.Json,

@@ -2,6 +2,7 @@ using System.Data;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using GZCTF.Controllers.Cyctf;
 using GZCTF.Middlewares;
@@ -116,8 +117,12 @@ public class RegistrationController(
         if (extension.MaxTeams is { } maxTeams && extension.CurrentTeams >= maxTeams)
             return BadRequest(new RequestResponse("报名人数已满"));
 
-        if (!TryValidateFormData(request.FormData, divisionExtension?.RegistrationFields, out var formError))
+        if (!TryValidateRegistrationData(request.FormData, null, divisionExtension?.RegistrationFields, out var formError))
             return BadRequest(new RequestResponse(formError!));
+
+        var uniqueError = await FindUniqueRegistrationConflict(request, divisionExtension?.RegistrationFields, token);
+        if (uniqueError is not null)
+            return BadRequest(new RequestResponse(uniqueError));
 
         var captainTeamCount = await db.Teams.CountAsync(team => team.CaptainId == user.Id, token);
         if (captainTeamCount >= MaxTeamsAllowed)
@@ -291,8 +296,12 @@ public class RegistrationController(
         if (extension.MaxTeams is { } maxTeams && extension.CurrentTeams >= maxTeams)
             return BadRequest(new RequestResponse("报名人数已满"));
 
-        if (!TryValidateFormData(request.FormData, divisionExtension?.RegistrationFields, out var formError))
+        if (!TryValidateRegistrationData(request.FormData, request.Members, divisionExtension?.RegistrationFields, out var formError))
             return BadRequest(new RequestResponse(formError!));
+
+        var uniqueError = await FindUniqueRegistrationConflict(request, divisionExtension?.RegistrationFields, token);
+        if (uniqueError is not null)
+            return BadRequest(new RequestResponse(uniqueError));
 
         var status = division.DefaultPermissions.HasFlag(GamePermission.RequireReview)
             ? "PENDING"
@@ -334,6 +343,7 @@ public class RegistrationController(
                 FormData = request.FormData,
                 CaptainEmail = email,
                 TeamName = teamName, // 保存队伍名称
+                TeamBio = teamBio,
                 MemberInvitations = invitations.Count > 0
                     ? System.Text.Json.JsonSerializer.Serialize(invitations)
                     : null,
@@ -349,7 +359,7 @@ public class RegistrationController(
             await transaction.CommitAsync(token);
 
             // 发送队长确认邮件
-            QueueNoAuthRegistrationNotification(game, teamName, division, email, confirmationToken, status);
+            QueueNoAuthRegistrationNotification(game, teamName, division, email, status);
 
             // 发送队员邀请邮件
             foreach (var invitation in invitations)
@@ -395,18 +405,45 @@ public class RegistrationController(
         if (registration is null)
             return NotFound(new RequestResponse("未找到该邮箱对应的报名记录"));
 
-        var response = RegistrationQueryResponse.FromEntity(registration);
-        if (string.Equals(registration.Status, "PENDING", StringComparison.OrdinalIgnoreCase))
-        {
-            var accessToken = Guid.NewGuid().ToString("N");
-            await cache.SetStringAsync(
-                $"cyctf:registration-query:{accessToken}",
-                $"{request.GameId}:{registration.Id}:{email}",
-                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15) },
-                token);
-            response.AccessToken = accessToken;
-        }
+        var accessToken = Guid.NewGuid().ToString("N");
+        await cache.SetStringAsync(
+            $"cyctf:registration-query:{accessToken}",
+            $"{request.GameId}:{registration.Id}:{email}",
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15) },
+            token);
 
+        var response = RegistrationQueryResponse.FromEntity(registration);
+        response.AccessToken = accessToken;
+        return Ok(response);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    [EnableRateLimiting(nameof(RateLimiter.LimitPolicy.Register))]
+    public async Task<IActionResult> RefreshRegistrationQuery(
+        [FromBody] RegistrationQueryRefreshRequest request, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(request.AccessToken))
+            return Unauthorized(new RequestResponse("查询授权无效"));
+
+        var queryKey = $"cyctf:registration-query:{request.AccessToken}";
+        var queryValue = await cache.GetStringAsync(queryKey, token);
+        if (string.IsNullOrWhiteSpace(queryValue))
+            return Unauthorized(new RequestResponse("查询授权已过期，请重新查询报名"));
+
+        var parts = queryValue.Split(':', 3);
+        if (parts.Length != 3 || !int.TryParse(parts[0], out var gameId) ||
+            !int.TryParse(parts[1], out var registrationId))
+            return Unauthorized(new RequestResponse("查询授权无效"));
+
+        var registration = await registrationRepository.GetRegistrationById(registrationId, token);
+        var captainEmail = registration?.CaptainEmail ?? registration?.Team?.Captain?.Email;
+        if (registration is null || registration.GameId != gameId ||
+            !string.Equals(captainEmail, parts[2], StringComparison.OrdinalIgnoreCase))
+            return Unauthorized(new RequestResponse("查询授权无效"));
+
+        var response = RegistrationQueryResponse.FromEntity(registration);
+        response.AccessToken = request.AccessToken;
         return Ok(response);
     }
 
@@ -432,8 +469,9 @@ public class RegistrationController(
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, token);
 
         var registration = await registrationRepository.GetRegistrationById(id, token);
+        var captainEmail = registration?.CaptainEmail ?? registration?.Team?.Captain?.Email;
         if (registration is null || registration.GameId != gameId ||
-            !string.Equals(registration.CaptainEmail, parts[2], StringComparison.OrdinalIgnoreCase))
+            !string.Equals(captainEmail, parts[2], StringComparison.OrdinalIgnoreCase))
             return Unauthorized(new RequestResponse("查询授权无效"));
 
         if (registration.Status == "APPROVED")
@@ -452,8 +490,8 @@ public class RegistrationController(
 
         await transaction.CommitAsync(token);
         await cache.RemoveAsync(queryKey, token);
-        if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
-            QueueNoAuthCancellationNotification(game, registration.CaptainEmail, registration.Division);
+        if (!string.IsNullOrWhiteSpace(captainEmail))
+            QueueNoAuthCancellationNotification(game, captainEmail, registration.Division);
 
         return Ok(RegistrationQueryResponse.FromEntity(registration));
     }
@@ -532,8 +570,7 @@ public class RegistrationController(
         var registration = await registrationRepository.GetRegistrationById(id, token);
         if (registration is null)
             return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
-        if (registration.Status != "PENDING")
-            return BadRequest(new RequestResponse("仅待审核报名可以审核"));
+        var wasCancelled = string.Equals(registration.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase);
         if (!string.Equals(request.Status, "APPROVED", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(request.Status, "REJECTED", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new RequestResponse("审核状态必须为 APPROVED 或 REJECTED"));
@@ -651,7 +688,11 @@ public class RegistrationController(
                 }
 
                 // 3. 创建队伍
-                var teamModel = new TeamUpdateModel { Name = registration.TeamName, Bio = $"{game.Title} 参赛队伍" };
+                var teamModel = new TeamUpdateModel
+                {
+                    Name = registration.TeamName,
+                    Bio = string.IsNullOrWhiteSpace(registration.TeamBio) ? $"{game.Title} 参赛队伍" : registration.TeamBio
+                };
                 var newTeam = await teamRepository.CreateTeam(teamModel, captain, token);
                 if (newTeam is null)
                 {
@@ -698,10 +739,13 @@ public class RegistrationController(
                 registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
                     reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
 
-                // 7. 更新比赛当前队伍数
-                var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
-                if (extension is not null)
-                    await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams + 1, token);
+                // 7. 取消状态曾释放名额，重新通过时恢复当前队伍数
+                if (wasCancelled)
+                {
+                    var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
+                    if (extension is not null)
+                        await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams + 1, token);
+                }
 
                 await approvalTransaction.CommitAsync(token);
 
@@ -754,6 +798,13 @@ public class RegistrationController(
 
         registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
             reviewerId2 == Guid.Empty ? null : reviewerId2, token) ?? registration;
+        if (wasCancelled && string.Equals(request.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+        {
+            var extension = await gameExtensionRepository.GetGameExtensionByGameId(registration.GameId, token);
+            if (extension is not null)
+                await gameExtensionRepository.UpdateCurrentTeams(registration.GameId, extension.CurrentTeams + 1, token);
+        }
+
         await transaction.CommitAsync(token);
         QueueRegistrationNotification(game, team, division, registration.Status, registration.ReviewNote);
         return Ok(RegistrationResponse.FromEntity(registration));
@@ -839,7 +890,7 @@ public class RegistrationController(
     }
 
     private void QueueNoAuthRegistrationNotification(Game game, string teamName, Division division, string email,
-        string confirmationToken, string status)
+        string status)
     {
         var safeGame = WebUtility.HtmlEncode(game.Title);
         var safeTeam = WebUtility.HtmlEncode(teamName);
@@ -849,12 +900,10 @@ public class RegistrationController(
         {
             "APPROVED" => ("CYCTF 报名审核通过",
                 $"队伍「{safeTeam}」已通过赛事「{safeGame}」的组别「{safeDivision}」报名审核。<br/><br/>" +
-                $"您的确认令牌是：<strong>{confirmationToken}</strong><br/>" +
-                "请妥善保管此令牌，您可以使用此令牌查询报名状态。"),
+                "您可以进入报名查询页面查看最新报名状态。"),
             _ => ("CYCTF 报名已提交",
                 $"队伍「{safeTeam}」已提交赛事「{safeGame}」的组别「{safeDivision}」报名，当前状态为待审核。<br/><br/>" +
-                $"您的确认令牌是：<strong>{confirmationToken}</strong><br/>" +
-                "请妥善保管此令牌，您可以使用此令牌查询报名状态。")
+                "您可以进入报名查询页面查看最新报名状态。")
         };
 
         try
@@ -895,9 +944,7 @@ public class RegistrationController(
     {
         var safeGame = WebUtility.HtmlEncode(game.Title);
         var safeTeam = WebUtility.HtmlEncode(teamName);
-        var safeToken = WebUtility.HtmlEncode(invitationToken);
-        
-        // 构造完整的邀请链接
+        // 构造邀请处理链接；凭证只放在链接地址中，不在邮件正文展示。
         var request = HttpContext.Request;
         var scheme = request.Scheme;
         var host = request.Host.ToUriComponent();
@@ -906,10 +953,8 @@ public class RegistrationController(
         
         var title = "CYCTF 队伍邀请";
         var information = $"您被邀请加入队伍「{safeTeam}」参加赛事「{safeGame}」。<br/><br/>" +
-                         $"<strong>邀请链接：</strong><br/>" +
-                         $"<a href=\"{safeUrl}\" style=\"color: #1976d2; text-decoration: none;\">{safeUrl}</a><br/><br/>" +
-                         $"您也可以手动访问系统并使用邀请令牌：<strong>{safeToken}</strong><br/><br/>" +
-                         "请点击链接或使用令牌接受或拒绝邀请。如果您拒绝邀请，队长需要重新提交报名。";
+                         $"<a href=\"{safeUrl}\" style=\"color: #1976d2; text-decoration: none;\">点击此处处理队伍邀请</a><br/><br/>" +
+                         "请点击上方链接接受或拒绝邀请。如果您拒绝邀请，队长需要重新提交报名。";
 
         try
         {
@@ -1155,7 +1200,19 @@ public class RegistrationController(
             .Any(item => string.Equals(item, domain, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool TryValidateFormData(string? formData, string? fieldSchema, out string? error)
+    private readonly record struct RegistrationFieldDefinition(
+        string Name,
+        string Label,
+        string Scope,
+        bool Required,
+        bool Unique,
+        string Pattern);
+
+    private static bool TryValidateRegistrationData(
+        string? formData,
+        List<MemberInfoRequest>? members,
+        string? fieldSchema,
+        out string? error)
     {
         error = null;
         try
@@ -1177,15 +1234,28 @@ public class RegistrationController(
                 return false;
             }
 
-            foreach (var field in GetFieldDefinitions(schemaDocument.RootElement))
+            var fields = GetFieldDefinitions(schemaDocument.RootElement).ToList();
+            foreach (var field in fields)
             {
-                if (!field.Required)
-                    continue;
-                if (!TryGetPropertyIgnoreCase(formDocument.RootElement, field.Name, out var value) ||
-                    IsEmptyValue(value))
-                {
-                    error = $"报名字段「{field.Name}」不能为空";
+                if (!ValidateFieldValue(formDocument.RootElement, field, "队长", out error))
                     return false;
+
+                if (!string.Equals(field.Scope, "member", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                for (var index = 0; index < (members?.Count ?? 0); index++)
+                {
+                    var member = members![index];
+                    using var memberDocument = JsonDocument.Parse(
+                        string.IsNullOrWhiteSpace(member.MemberFields) ? "{}" : member.MemberFields);
+                    if (memberDocument.RootElement.ValueKind != JsonValueKind.Object)
+                    {
+                        error = $"队员 {index + 1} 的报名字段数据必须是 JSON 对象";
+                        return false;
+                    }
+
+                    if (!ValidateFieldValue(memberDocument.RootElement, field, $"队员 {index + 1}", out error))
+                        return false;
                 }
             }
 
@@ -1198,7 +1268,162 @@ public class RegistrationController(
         }
     }
 
-    private static IEnumerable<(string Name, bool Required)> GetFieldDefinitions(JsonElement schema)
+    private static bool ValidateFieldValue(
+        JsonElement form,
+        RegistrationFieldDefinition field,
+        string subject,
+        out string? error)
+    {
+        error = null;
+        if (!TryGetPropertyIgnoreCase(form, field.Name, out var value) || IsEmptyValue(value))
+        {
+            if (field.Required)
+                error = $"{subject}的报名字段「{field.Label}」不能为空";
+            return !field.Required;
+        }
+
+        if (string.IsNullOrWhiteSpace(field.Pattern))
+            return true;
+
+        try
+        {
+            var text = GetValidationText(value);
+            if (!Regex.IsMatch(text, field.Pattern, RegexOptions.CultureInvariant,
+                    TimeSpan.FromMilliseconds(250)))
+            {
+                error = $"{subject}的报名字段「{field.Label}」格式不正确";
+                return false;
+            }
+        }
+        catch (ArgumentException)
+        {
+            error = $"报名字段「{field.Label}」的内容正则无效";
+            return false;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            error = $"报名字段「{field.Label}」的内容正则执行超时";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<string?> FindUniqueRegistrationConflict(
+        RegistrationRequest request,
+        string? fieldSchema,
+        CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(fieldSchema))
+            return null;
+
+        using var schemaDocument = JsonDocument.Parse(fieldSchema);
+        var uniqueFields = GetFieldDefinitions(schemaDocument.RootElement)
+            .Where(field => field.Unique)
+            .ToList();
+        if (uniqueFields.Count == 0)
+            return null;
+
+        var existingRegistrations = await registrationRepository.GetRegistrationsByGameId(request.GameId, token: token);
+        foreach (var field in uniqueFields)
+        {
+            var submittedValues = GetRequestFieldValues(request, field).ToList();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var value in submittedValues)
+            {
+                if (!seen.Add(value))
+                    return $"报名字段「{field.Label}」的内容不能重复";
+            }
+
+            foreach (var registration in existingRegistrations.Where(item =>
+                         item.Status is not ("REJECTED" or "CANCELLED")))
+            {
+                IEnumerable<string> existingValues;
+                try
+                {
+                    existingValues = GetRegistrationFieldValues(registration, field).ToList();
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (submittedValues.Any(value => existingValues.Contains(value, StringComparer.OrdinalIgnoreCase)))
+                    return $"报名字段「{field.Label}」的内容已被其他报名使用";
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetRequestFieldValues(
+        RegistrationRequest request,
+        RegistrationFieldDefinition field)
+    {
+        using var formDocument = JsonDocument.Parse(string.IsNullOrWhiteSpace(request.FormData) ? "{}" : request.FormData);
+        foreach (var value in GetFieldValues(formDocument.RootElement, field.Name))
+            yield return NormalizeUniqueValue(value);
+
+        if (!string.Equals(field.Scope, "member", StringComparison.OrdinalIgnoreCase))
+            yield break;
+
+        foreach (var member in request.Members ?? [])
+        {
+            using var memberDocument = JsonDocument.Parse(
+                string.IsNullOrWhiteSpace(member.MemberFields) ? "{}" : member.MemberFields);
+            foreach (var value in GetFieldValues(memberDocument.RootElement, field.Name))
+                yield return NormalizeUniqueValue(value);
+        }
+    }
+
+    private static IEnumerable<string> GetRegistrationFieldValues(
+        Registration registration,
+        RegistrationFieldDefinition field)
+    {
+        using var formDocument = JsonDocument.Parse(string.IsNullOrWhiteSpace(registration.FormData) ? "{}" : registration.FormData);
+        foreach (var value in GetFieldValues(formDocument.RootElement, field.Name))
+            yield return NormalizeUniqueValue(value);
+
+        if (!string.Equals(field.Scope, "member", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(registration.MemberInvitations))
+            yield break;
+
+        List<MemberInvitation>? invitations;
+        try
+        {
+            invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(registration.MemberInvitations);
+        }
+        catch (JsonException)
+        {
+            yield break;
+        }
+
+        foreach (var invitation in invitations ?? [])
+        {
+            using var memberDocument = JsonDocument.Parse(
+                string.IsNullOrWhiteSpace(invitation.MemberFields) ? "{}" : invitation.MemberFields);
+            foreach (var value in GetFieldValues(memberDocument.RootElement, field.Name))
+                yield return NormalizeUniqueValue(value);
+        }
+    }
+
+    private static IEnumerable<string> GetFieldValues(JsonElement form, string name)
+    {
+        if (TryGetPropertyIgnoreCase(form, name, out var value) && !IsEmptyValue(value))
+            yield return GetValidationText(value);
+    }
+
+    private static string NormalizeUniqueValue(string value) => value.Trim();
+
+    private static string GetValidationText(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString() ?? string.Empty,
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        _ => value.GetRawText()
+    };
+
+    private static IEnumerable<RegistrationFieldDefinition> GetFieldDefinitions(JsonElement schema)
     {
         if (schema.ValueKind == JsonValueKind.Array)
         {
@@ -1212,7 +1437,7 @@ public class RegistrationController(
                 {
                     var name = fieldName.GetString();
                     if (!string.IsNullOrWhiteSpace(name))
-                        yield return (name, GetRequired(item));
+                        yield return CreateFieldDefinition(name, item);
                 }
             }
 
@@ -1231,14 +1456,37 @@ public class RegistrationController(
         {
             if (property.Value.ValueKind != JsonValueKind.Object)
                 continue;
-            yield return (property.Name, GetRequired(property.Value));
+            yield return CreateFieldDefinition(property.Name, property.Value);
         }
     }
 
-    private static bool GetRequired(JsonElement field)
+    private static RegistrationFieldDefinition CreateFieldDefinition(string name, JsonElement field)
     {
-        return TryGetPropertyIgnoreCase(field, "required", out var required) &&
-               required.ValueKind == JsonValueKind.True;
+        var label = GetStringProperty(field, "label") ?? name;
+        var scope = GetStringProperty(field, "scope") is { } rawScope &&
+                    (string.Equals(rawScope, "member", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(rawScope, "player", StringComparison.OrdinalIgnoreCase))
+            ? "member"
+            : "team";
+        return new RegistrationFieldDefinition(
+            name.Trim(),
+            label.Trim(),
+            scope,
+            GetBooleanProperty(field, "required"),
+            GetBooleanProperty(field, "unique"),
+            GetStringProperty(field, "pattern") ?? string.Empty);
+    }
+
+    private static string? GetStringProperty(JsonElement element, string name)
+    {
+        return TryGetPropertyIgnoreCase(element, name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+    }
+
+    private static bool GetBooleanProperty(JsonElement element, string name)
+    {
+        return TryGetPropertyIgnoreCase(element, name, out var value) && value.ValueKind == JsonValueKind.True;
     }
 
     private static bool IsEmptyValue(JsonElement value) =>

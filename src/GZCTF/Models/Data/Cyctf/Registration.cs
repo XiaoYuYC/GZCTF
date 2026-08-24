@@ -61,6 +61,12 @@ public class Registration
     public string? TeamName { get; set; }
 
     /// <summary>
+    /// 队伍简介（无需登录报名时保存，审核通过后用于创建队伍）
+    /// </summary>
+    [MaxLength(72)]
+    public string? TeamBio { get; set; }
+
+    /// <summary>
     /// 队员邀请信息 JSON：[{"email":"x@x.com","token":"uuid","accepted":false,"rejected":false,"acceptedAt":null}]
     /// </summary>
     [Column(TypeName = "text")]

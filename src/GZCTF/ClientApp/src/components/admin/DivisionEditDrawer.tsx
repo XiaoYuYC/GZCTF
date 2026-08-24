@@ -37,14 +37,7 @@ import { PermissionDot, PermissionSelector } from '@Components/admin/PermissionS
 import { PERMISSION_DEFINITIONS, permissionMaskToArray } from '@Utils/Permission'
 import { randomInviteCode, showErrorMsg } from '@Utils/Shared'
 import { useIsMobile } from '@Utils/ThemeOverride'
-import {
-  ChallengeInfoModel,
-  Division,
-  DivisionCreateModel,
-  DivisionExtensionRequest,
-  DivisionExtensionResponse,
-  GamePermission,
-} from '@Api'
+import { ChallengeInfoModel, Division, DivisionCreateModel, DivisionExtensionRequest, GamePermission } from '@Api'
 import api from '@Api'
 import layoutClasses from '@Styles/AdminLayout.module.css'
 
@@ -65,6 +58,8 @@ type RegistrationFieldEditor = {
   type: RegistrationFieldType
   scope: RegistrationFieldScope
   required: boolean
+  unique: boolean
+  pattern: string
   description: string
   placeholder: string
 }
@@ -88,6 +83,8 @@ const emptyRegistrationField = (): RegistrationFieldEditor => ({
   type: 'text',
   scope: 'team',
   required: false,
+  unique: false,
+  pattern: '',
   description: '',
   placeholder: '',
 })
@@ -136,8 +133,10 @@ const parseRegistrationFields = (raw: string | null | undefined) => {
         name: nameValue.trim(),
         label: typeof item.label === 'string' && item.label.trim() ? item.label.trim() : nameValue.trim(),
         type,
-        scope: item.scope === 'member' ? 'member' : 'team', // 默认 team，兼容旧数据
+        scope: item.scope === 'member' || item.scope === 'player' ? 'member' : 'team', // 默认 team，兼容旧数据
         required: item.required === true,
+        unique: item.unique === true,
+        pattern: typeof item.pattern === 'string' ? item.pattern : '',
         description:
           typeof item.description === 'string'
             ? item.description
@@ -163,6 +162,8 @@ const serializeRegistrationFields = (fields: RegistrationFieldEditor[]) => {
       type: field.type,
       scope: field.scope,
       required: field.required,
+      unique: field.unique,
+      ...(field.pattern.trim() ? { pattern: field.pattern.trim() } : {}),
       ...(field.description.trim() ? { description: field.description.trim() } : {}),
       ...(field.placeholder.trim() ? { placeholder: field.placeholder.trim() } : {}),
     }))
@@ -333,6 +334,21 @@ export const DivisionEditDrawer: FC<DivisionEditDrawerProps> = ({
   })
 
   const handleSubmit = async () => {
+    const invalidPattern = registrationFields.find((field) => {
+      if (!field.pattern.trim()) return false
+      try {
+        new RegExp(field.pattern)
+        return false
+      } catch {
+        return true
+      }
+    })
+    if (invalidPattern) {
+      setRegistrationFieldsError(`字段“${invalidPattern.label || invalidPattern.name}”的内容正则无效`)
+      return
+    }
+    setRegistrationFieldsError(null)
+
     const trimmedName = name.trim()
     if (!trimmedName) {
       showNotification({
@@ -378,7 +394,8 @@ export const DivisionEditDrawer: FC<DivisionEditDrawerProps> = ({
       try {
         await api.divisionExtension.divisionExtensionCreateOrUpdateDivisionExtension(savedDivision.id, extensionRequest)
       } catch (extError) {
-        console.error('Failed to save division extension:', extError)
+        showErrorMsg(extError, t)
+        return
       }
 
       onDivisionSaved(savedDivision)
@@ -633,7 +650,7 @@ export const DivisionEditDrawer: FC<DivisionEditDrawerProps> = ({
                           disabled={loading}
                         />
                       </Group>
-                      <Group gap="xs">
+                      <Group gap="lg" wrap="wrap">
                         <Checkbox
                           label="必填"
                           checked={field.required}
@@ -644,7 +661,29 @@ export const DivisionEditDrawer: FC<DivisionEditDrawerProps> = ({
                           }}
                           disabled={loading}
                         />
+                        <Checkbox
+                          label="唯一项（队长和队员不可重复）"
+                          checked={field.unique}
+                          onChange={(e) => {
+                            const updated = [...registrationFields]
+                            updated[index] = { ...field, unique: e.currentTarget.checked }
+                            setRegistrationFields(updated)
+                          }}
+                          disabled={loading}
+                        />
                       </Group>
+                      <TextInput
+                        label="内容正则"
+                        description="用于校验字段内容；完整匹配请使用 ^ 和 $"
+                        placeholder="例如：^1\\d{10}$"
+                        value={field.pattern}
+                        onChange={(e) => {
+                          const updated = [...registrationFields]
+                          updated[index] = { ...field, pattern: e.currentTarget.value }
+                          setRegistrationFields(updated)
+                        }}
+                        disabled={loading}
+                      />
                       <TextInput
                         label="说明文字"
                         placeholder="向报名者展示的提示信息"

@@ -160,7 +160,7 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         foreach (var registration in registrations)
         {
             var teamId = registration.TeamId?.ToString() ?? string.Empty;
-            var teamName = registration.Team?.Name ?? string.Empty;
+            var teamName = registration.TeamName ?? registration.Team?.Name ?? string.Empty;
             var members = registration.Team != null
                 ? string.Join("; ", registration.Team.Members
                     .Select(member => string.IsNullOrWhiteSpace(member.Email)
@@ -271,6 +271,7 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         {
             registration.Team = await Context.Teams
                 .Include(item => item.Members)
+                .Include(item => item.Captain)
                 .FirstOrDefaultAsync(item => item.Id == registration.TeamId.Value, token) ?? null!;
         }
         registration.Division = await Context.Divisions

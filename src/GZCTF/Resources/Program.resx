@@ -155,6 +155,9 @@
   <data name="Account_IncorrectUserNameOrPassword" xml:space="preserve">
     <value>Wrong username or password</value>
   </data>
+  <data name="Account_AdminOnlyLogin" xml:space="preserve">
+    <value>Only administrators can sign in at this time</value>
+  </data>
   <data name="Account_InvalidEmail" xml:space="preserve">
     <value>Invalid email address</value>
   </data>

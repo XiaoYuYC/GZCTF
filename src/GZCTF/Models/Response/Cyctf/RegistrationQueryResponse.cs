@@ -14,11 +14,15 @@ public class RegistrationQueryResponse
     public int GameId { get; set; }
     public string? GameTitle { get; set; }
     public string? TeamName { get; set; }
+    public string? TeamBio { get; set; }
     public string? CaptainEmail { get; set; }
+    public int DivisionId { get; set; }
     public string? DivisionName { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string? FormData { get; set; }
     public string? ReviewNote { get; set; }
     public DateTimeOffset CreateTime { get; set; }
+    public DateTimeOffset UpdateTime { get; set; }
     public DateTimeOffset? ReviewedAt { get; set; }
     public string? AccessToken { get; set; }
     public List<RegistrationMemberResponse> Members { get; set; } = [];
@@ -29,11 +33,15 @@ public class RegistrationQueryResponse
         GameId = registration.GameId,
         GameTitle = registration.Game?.Title,
         TeamName = registration.TeamName ?? registration.Team?.Name,
-        CaptainEmail = registration.CaptainEmail,
+        TeamBio = registration.TeamBio ?? registration.Team?.Bio,
+        CaptainEmail = registration.CaptainEmail ?? registration.Team?.Captain?.Email,
+        DivisionId = registration.DivisionId,
         DivisionName = registration.Division?.Name,
         Status = registration.Status,
+        FormData = registration.FormData,
         ReviewNote = registration.ReviewNote,
         CreateTime = registration.CreateTime,
+        UpdateTime = registration.UpdateTime,
         ReviewedAt = registration.ReviewedAt,
         Members = ParseMembers(registration.MemberInvitations)
     };
@@ -48,6 +56,7 @@ public class RegistrationQueryResponse
             {
                 Email = member.Email,
                 Status = member.Status,
+                MemberFields = member.MemberFields,
                 SentAt = member.SentAt,
                 RespondedAt = member.RespondedAt
             }).ToList() ?? [];
@@ -63,6 +72,7 @@ public class RegistrationMemberResponse
 {
     public string Email { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string? MemberFields { get; set; }
     public DateTimeOffset SentAt { get; set; }
     public DateTimeOffset? RespondedAt { get; set; }
 }

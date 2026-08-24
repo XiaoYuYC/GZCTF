@@ -12,6 +12,7 @@ public class RegistrationResponse
     public int GameId { get; set; }
     public int? TeamId { get; set; }
     public string? TeamName { get; set; }
+    public string? TeamBio { get; set; }
     public string? CaptainEmail { get; set; }
     public int DivisionId { get; set; }
     public string? DivisionName { get; set; }
@@ -23,7 +24,8 @@ public class RegistrationResponse
     public DateTimeOffset? ReviewedAt { get; set; }
     public DateTimeOffset CreateTime { get; set; }
     public DateTimeOffset UpdateTime { get; set; }
-    
+    public List<RegistrationMemberResponse> Members { get; set; } = [];
+
     /// <summary>
     /// 队伍所有成员是否已全部接受邀请（基于 Participation.Members 和 Registration.MemberInvitations）
     /// </summary>
@@ -34,8 +36,9 @@ public class RegistrationResponse
         Id = entity.Id,
         GameId = entity.GameId,
         TeamId = entity.TeamId,
-        TeamName = entity.Team?.Name,
-        CaptainEmail = entity.CaptainEmail,
+        TeamName = entity.TeamName ?? entity.Team?.Name,
+        TeamBio = entity.TeamBio ?? entity.Team?.Bio,
+        CaptainEmail = entity.CaptainEmail ?? entity.Team?.Captain?.Email,
         DivisionId = entity.DivisionId,
         DivisionName = entity.Division?.Name,
         Status = entity.Status,
@@ -46,8 +49,31 @@ public class RegistrationResponse
         ReviewedAt = entity.ReviewedAt,
         CreateTime = entity.CreateTime,
         UpdateTime = entity.UpdateTime,
+        Members = ParseMembers(entity.MemberInvitations),
         AllMembersAccepted = ComputeAllMembersAccepted(entity)
     };
+
+    private static List<RegistrationMemberResponse> ParseMembers(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return [];
+        try
+        {
+            var invitations = JsonSerializer.Deserialize<List<Models.Data.Cyctf.MemberInvitation>>(raw,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return invitations?.Select(member => new RegistrationMemberResponse
+            {
+                Email = member.Email,
+                Status = member.Status,
+                MemberFields = member.MemberFields,
+                SentAt = member.SentAt,
+                RespondedAt = member.RespondedAt
+            }).ToList() ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
     private static bool? ComputeAllMembersAccepted(Registration entity)
     {
