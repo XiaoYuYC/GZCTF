@@ -17,6 +17,9 @@ public interface IRegistrationRepository : IRepository
     Task<Registration?> GetRegistrationByEmailAndGame(string email, int gameId,
         CancellationToken token = default);
 
+    Task<Registration?> GetApprovedRegistrationByEmailAndGame(string email, int gameId,
+        CancellationToken token = default);
+
     Task<Registration?> GetRegistrationById(int id, CancellationToken token = default);
 
     Task<Registration> CreateRegistration(Registration registration, CancellationToken token = default);

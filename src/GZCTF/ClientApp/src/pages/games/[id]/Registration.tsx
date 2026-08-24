@@ -153,9 +153,9 @@ const validatePattern = (field: RegistrationField, value: FieldValue | undefined
   const text = fieldValueToText(value)
   if (!text || !field.pattern?.trim()) return null
   try {
-    return new RegExp(field.pattern).test(text) ? null : `${subject}的报名字段“${field.label}”格式不正确`
+    return new RegExp(field.pattern).test(text) ? null : `${subject}的“${field.label}”格式不正确`
   } catch {
-    return `报名字段“${field.label}”的内容正则无效`
+    return `报名信息“${field.label}”的内容正则无效`
   }
 }
 

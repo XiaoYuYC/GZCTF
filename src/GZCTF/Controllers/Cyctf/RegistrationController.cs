@@ -243,8 +243,8 @@ public class RegistrationController(
         if (!IsAllowedEmail(accountPolicy.Value.EmailDomainList, email))
             return BadRequest(new RequestResponse("队长邮箱不在 GZCTF 邮箱域名白名单中"));
 
-        // 检查该邮箱是否已经报名过此比赛
-        var existingByEmail = await registrationRepository.GetRegistrationByEmailAndGame(email, game.Id, token);
+        // 只有已审核通过的报名才占用队长邮箱；已取消或已拒绝的报名允许重新提交
+        var existingByEmail = await registrationRepository.GetApprovedRegistrationByEmailAndGame(email, game.Id, token);
         if (existingByEmail is not null)
             return BadRequest(new RequestResponse("该邮箱已报名过此比赛", StatusCodes.Status400BadRequest));
 
@@ -311,8 +311,8 @@ public class RegistrationController(
         {
             await using var transaction = await db.Database.BeginTransactionAsync(token);
 
-            // 再次检查并发
-            var concurrentByEmail = await registrationRepository.GetRegistrationByEmailAndGame(email, game.Id, token);
+            // 再次检查并发：仅已审核通过的报名占用邮箱
+            var concurrentByEmail = await registrationRepository.GetApprovedRegistrationByEmailAndGame(email, game.Id, token);
             if (concurrentByEmail is not null)
                 return BadRequest(new RequestResponse("该邮箱已报名过此比赛", StatusCodes.Status400BadRequest));
 
@@ -372,7 +372,7 @@ public class RegistrationController(
         catch (DbUpdateException)
         {
             db.ChangeTracker.Clear();
-            var concurrentByEmail = await registrationRepository.GetRegistrationByEmailAndGame(email, game.Id, token);
+            var concurrentByEmail = await registrationRepository.GetApprovedRegistrationByEmailAndGame(email, game.Id, token);
             if (concurrentByEmail is not null)
                 return BadRequest(new RequestResponse("该邮箱已报名过此比赛", StatusCodes.Status400BadRequest));
             throw;

@@ -84,6 +84,24 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         return registration;
     }
 
+    public async Task<Registration?> GetApprovedRegistrationByEmailAndGame(string email, int gameId,
+        CancellationToken token = default)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var registration = (await store.GetByPrefix<Registration>(RootPrefix, token))
+            .Select(item => item.Value)
+            .Where(item => item.GameId == gameId && !item.Deleted &&
+                           item.Status == "APPROVED" &&
+                           item.CaptainEmail != null &&
+                           item.CaptainEmail.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.UpdateTime)
+            .FirstOrDefault();
+
+        if (registration is not null)
+            await Hydrate(registration, token);
+        return registration;
+    }
+
     public async Task<Registration?> GetRegistrationById(int id, CancellationToken token = default)
     {
         var registrations = await store.GetByPrefix<Registration>(RootPrefix, token);
