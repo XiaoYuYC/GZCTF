@@ -1,7 +1,6 @@
 import {
   Alert,
   Anchor,
-  BackgroundImage,
   Badge,
   Button,
   Card,
@@ -25,6 +24,8 @@ import dayjs from 'dayjs'
 import { FC, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router'
+import { AwardDescription } from '@Components/AwardDescription'
+import { AwardFocusFrame } from '@Components/AwardFocusFrame'
 import { GameJoinModal } from '@Components/GameJoinModal'
 import { GameProgress } from '@Components/GameProgress'
 import { Markdown } from '@Components/MarkdownRenderer'
@@ -349,11 +350,15 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
             <GameProgress percentage={progress} />
             <Group>{ControlButtons}</Group>
           </Stack>
-          <BackgroundImage className={classes.banner} src={game?.poster ?? ''} radius="sm">
-            <Center h="100%">
-              {!game?.poster && <Icon path={mdiFlagOutline} size={4} color={theme.colors.gray[5]} />}
-            </Center>
-          </BackgroundImage>
+          <div className={classes.banner}>
+            {game?.poster ? (
+              <Image src={game.poster} alt="poster" fit="contain" w="100%" h="100%" />
+            ) : (
+              <Center h="100%">
+                <Icon path={mdiFlagOutline} size={4} color={theme.colors.gray[5]} />
+              </Center>
+            )}
+          </div>
         </Group>
       </div>
       <Container className={classes.content}>
@@ -393,17 +398,10 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
               {/* 赞助商区域 */}
               {sponsors.length > 0 && (
                 <Stack gap="lg">
-                  <Title order={2} ta="center">
-                    赞助商
-                  </Title>
-
                   {(() => {
-                    // 合并主办方和承办方到同一分组
                     const groupedSponsors = sponsors.reduce(
                       (acc, sponsor) => {
-                        const rawType = sponsor.typeLabel || getSponsorTypeLabel(sponsor.type)
-                        // 将主办方和承办方合并为"主办单位"
-                        const type = rawType === '主办方' || rawType === '承办方' ? '主办单位' : rawType
+                        const type = sponsor.typeLabel || getSponsorTypeLabel(sponsor.type)
                         if (!acc[type]) {
                           acc[type] = []
                         }
@@ -424,7 +422,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
                             base: 1,
                             xs: 2,
                             sm: 3,
-                            md: type === '主办单位' ? 2 : type === '协办方' ? 3 : 4,
+                            md: type === '协办方' ? 3 : 4,
                             lg: Math.min(typeSponsors.length, 6),
                           }}
                           spacing="lg"
@@ -442,8 +440,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
                                 cursor: sponsor.website ? 'pointer' : 'default',
                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                 border: '1px solid var(--mantine-color-gray-3)',
-                                background:
-                                  'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(249,250,251,0.9) 100%)',
+                                background: 'transparent',
                               }}
                               onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
                                 if (sponsor.website) {
@@ -467,7 +464,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
                                       justifyContent: 'center',
                                       padding: '12px',
                                       borderRadius: '8px',
-                                      background: 'rgba(255,255,255,0.8)',
+                                      background: 'transparent',
                                     }}
                                   >
                                     <Image
@@ -486,11 +483,11 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
-                                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                      background: 'transparent',
                                       borderRadius: '8px',
                                     }}
                                   >
-                                    <Text ta="center" fw={700} size="xl" c="white">
+                                    <Text ta="center" fw={700} size="xl">
                                       {sponsor.shortName}
                                     </Text>
                                   </Paper>
@@ -516,72 +513,74 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
                   </Title>
 
                   <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-                    {awards.map((award) => (
-                      <Card
-                        key={award.id}
-                        shadow="lg"
-                        padding="xl"
-                        radius="lg"
-                        style={{
-                          background: `linear-gradient(135deg, ${award.primaryColor || '#3B6DFF'}15 0%, ${award.secondaryColor || '#6EE7B7'}15 100%)`,
-                          borderLeft: `5px solid ${award.primaryColor || '#3B6DFF'}`,
-                          border: `1px solid ${award.primaryColor || '#3B6DFF'}40`,
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          overflow: 'hidden',
-                          position: 'relative',
-                        }}
-                        onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
-                          e.currentTarget.style.transform = 'translateY(-6px) scale(1.01)'
-                          e.currentTarget.style.boxShadow = '0 16px 32px rgba(0,0,0,0.15)'
-                        }}
-                        onMouseLeave={(e: React.MouseEvent<HTMLElement>) => {
-                          e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                          e.currentTarget.style.boxShadow = ''
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: -20,
-                            right: -20,
-                            width: 120,
-                            height: 120,
-                            borderRadius: '50%',
-                            background: `linear-gradient(135deg, ${award.primaryColor || '#3B6DFF'}15, ${award.secondaryColor || '#6EE7B7'}15)`,
-                            filter: 'blur(30px)',
-                          }}
-                        />
-                        <Stack gap="md" style={{ position: 'relative' }}>
-                          <Group justify="space-between" align="flex-start">
-                            <Title order={4} fw={700} style={{ flex: 1 }}>
-                              {award.name}
-                            </Title>
+                    {awards.map((award) => {
+                      const primaryColor = award.primaryColor || '#3B6DFF'
+                      const secondaryColor = award.secondaryColor || '#6EE7B7'
+
+                      return (
+                        <AwardFocusFrame key={award.id} primaryColor={primaryColor} secondaryColor={secondaryColor}>
+                          <Card
+                            shadow="lg"
+                            padding="xl"
+                            radius="lg"
+                            style={{
+                              background: `linear-gradient(135deg, ${primaryColor}15 0%, ${secondaryColor}15 100%)`,
+                              borderLeft: `5px solid ${primaryColor}`,
+                              border: `1px solid ${primaryColor}40`,
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              overflow: 'hidden',
+                              position: 'relative',
+                            }}
+                            onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
+                              e.currentTarget.style.transform = 'translateY(-6px) scale(1.01)'
+                              e.currentTarget.style.boxShadow = '0 16px 32px rgba(0,0,0,0.15)'
+                            }}
+                            onMouseLeave={(e: React.MouseEvent<HTMLElement>) => {
+                              e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                              e.currentTarget.style.boxShadow = ''
+                            }}
+                          >
                             <div
                               style={{
-                                width: 48,
-                                height: 48,
+                                position: 'absolute',
+                                top: -20,
+                                right: -20,
+                                width: 120,
+                                height: 120,
                                 borderRadius: '50%',
-                                background: `linear-gradient(135deg, ${award.primaryColor || '#3B6DFF'}, ${award.secondaryColor || '#6EE7B7'})`,
-                                boxShadow: `0 8px 16px ${award.primaryColor || '#3B6DFF'}40`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                background: `linear-gradient(135deg, ${primaryColor}15, ${secondaryColor}15)`,
+                                filter: 'blur(30px)',
                               }}
-                            >
-                              <Text fw={900} size="xl" c="white">
-                                🏆
-                              </Text>
-                            </div>
-                          </Group>
+                            />
+                            <Stack gap="md" style={{ position: 'relative' }}>
+                              <Group justify="space-between" align="flex-start">
+                                <Title order={4} fw={700} style={{ flex: 1 }}>
+                                  {award.name}
+                                </Title>
+                                <div
+                                  style={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: '50%',
+                                    background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                                    boxShadow: `0 8px 16px ${primaryColor}40`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <Text fw={900} size="xl" c="white">
+                                    🏆
+                                  </Text>
+                                </div>
+                              </Group>
 
-                          {award.description && (
-                            <Text size="sm" c="dimmed" lineClamp={3} style={{ minHeight: '3.5em' }}>
-                              {award.description}
-                            </Text>
-                          )}
-                        </Stack>
-                      </Card>
-                    ))}
+                              {award.description && <AwardDescription source={award.description} />}
+                            </Stack>
+                          </Card>
+                        </AwardFocusFrame>
+                      )
+                    })}
                   </SimpleGrid>
                 </Stack>
               )}

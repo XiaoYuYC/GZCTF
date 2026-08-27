@@ -40,6 +40,10 @@ export const useConfig = () => {
     defaultValue: {
       title: 'GZ',
       slogan: 'Hack for fun not for profit',
+      namingStyle: 'Original',
+      customWebsiteTitle: null,
+      customHeaderTitle: null,
+      customPageSubtitle: null,
       portMapping: ContainerPortMappingType.Default,
       footerInfo: null,
       customTheme: null,

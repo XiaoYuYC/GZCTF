@@ -45,21 +45,23 @@ export const ChallengeEditCard: FC<ChallengeEditCardProps> = ({ challenge, onTog
   const minRate = (min / tot) * 100
   const curRate = (cur / tot) * 100
 
-  const contentWidth = 'calc(100% - 12rem)'
-
   return (
-    <Card shadow="sm" p="sm">
-      <Group wrap="nowrap" justify="space-between" gap="xs">
-        <Switch
-          color={color}
-          disabled={disabled}
-          checked={challenge.isEnabled}
-          onChange={() => onToggle(challenge, setDisabled)}
-        />
+    <Card shadow="sm" p="sm" w="100%" miw={0}>
+      <Group wrap="nowrap" justify="space-between" gap="xs" miw={0}>
+        <span className={classes.toggle}>
+          <Switch
+            color={color}
+            disabled={disabled}
+            checked={challenge.isEnabled}
+            onChange={() => onToggle(challenge, setDisabled)}
+          />
+        </span>
 
-        <Icon path={data!.icon} color={theme.colors[data?.color ?? theme.primaryColor][5]} size={1.2} />
+        <span className={classes.categoryIcon}>
+          <Icon path={data!.icon} color={theme.colors[data?.color ?? theme.primaryColor][5]} size={1.2} />
+        </span>
 
-        <Stack gap={0} maw={contentWidth} miw={contentWidth}>
+        <Stack gap={0} flex={1} miw={0} maw="100%">
           <Text truncate fw="bold">
             {challenge.title}
           </Text>
@@ -72,7 +74,12 @@ export const ChallengeEditCard: FC<ChallengeEditCardProps> = ({ challenge, onTog
         </Stack>
 
         <Tooltip label={t('admin.button.challenges.edit')} position="left" offset={10} classNames={classes}>
-          <ActionIcon c={color} component={Link} to={`/admin/games/${id}/challenges/${challenge.id}`}>
+          <ActionIcon
+            className={classes.action}
+            c={color}
+            component={Link}
+            to={`/admin/games/${id}/challenges/${challenge.id}`}
+          >
             <Icon path={mdiPuzzleEditOutline} size={1} />
           </ActionIcon>
         </Tooltip>
@@ -83,7 +90,12 @@ export const ChallengeEditCard: FC<ChallengeEditCardProps> = ({ challenge, onTog
           offset={54}
           classNames={classes}
         >
-          <ActionIcon c={color} component={Link} to={`/admin/games/${id}/challenges/${challenge.id}/flags`}>
+          <ActionIcon
+            className={classes.action}
+            c={color}
+            component={Link}
+            to={`/admin/games/${id}/challenges/${challenge.id}/flags`}
+          >
             <Icon path={mdiDatabaseEditOutline} size={1} />
           </ActionIcon>
         </Tooltip>

@@ -6,8 +6,9 @@ import { useTranslation } from 'react-i18next'
 import contributorsData from 'virtual:contributors'
 import { WithNavBar } from '@Components/WithNavbar'
 import { MainIcon } from '@Components/icon/MainIcon'
+import { getPlatformNaming } from '@Utils/PlatformNaming'
 import { useIsMobile } from '@Utils/ThemeOverride'
-import { ValidatedRepoMeta } from '@Hooks/useConfig'
+import { useConfig, ValidatedRepoMeta } from '@Hooks/useConfig'
 import { usePageTitle } from '@Hooks/usePageTitle'
 import classes from '@Styles/About.module.css'
 import logoClasses from '@Styles/LogoHeader.module.css'
@@ -31,6 +32,8 @@ const ResourceLink: FC<ResourceLinkProps> = ({ icon, href, children, prefix }) =
 
 const About: FC = () => {
   const { repo, valid, rawTag: tag, sha, buildTime } = ValidatedRepoMeta()
+  const { config } = useConfig()
+  const { headerTitle, isCustom, pageSubtitle } = getPlatformNaming(config)
   const { t } = useTranslation()
   const shortSha = sha.substring(0, 8)
 
@@ -57,10 +60,17 @@ const About: FC = () => {
               <MainIcon size="5rem" className={classes.mainIcon} />
             </Box>
             <Title order={1} size="3.5rem" fw={800} ta="center" className={classes.mainTitle}>
-              GZ<span className={logoClasses.brand}>::</span>CTF
+              {isCustom ? (
+                headerTitle
+              ) : (
+                <>
+                  {config?.title ?? 'GZ'}
+                  <span className={logoClasses.brand}>::</span>CTF
+                </>
+              )}
             </Title>
             <Text size="xl" fw={500} ta="center" c="dimmed" ff="monospace" mt="xs" className={classes.slogan}>
-              &gt;&nbsp;{t('common.content.about.slogan')}
+              &gt;&nbsp;{pageSubtitle}
               <Text span className={classes.blink}>
                 _
               </Text>

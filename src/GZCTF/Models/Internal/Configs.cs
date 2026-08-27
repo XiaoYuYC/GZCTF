@@ -255,6 +255,32 @@ public class GlobalConfig
     public string Slogan { get; set; } = "Hack for fun not for profit";
 
     /// <summary>
+    /// Platform naming style
+    /// </summary>
+    [CacheFlush(CacheKey.Index)]
+    [CacheFlush(CacheKey.ClientConfig)]
+    public string NamingStyle { get; set; } = "Original";
+
+    /// <summary>
+    /// Custom website title
+    /// </summary>
+    [CacheFlush(CacheKey.Index)]
+    [CacheFlush(CacheKey.ClientConfig)]
+    public string? CustomWebsiteTitle { get; set; }
+
+    /// <summary>
+    /// Custom title displayed in the website header
+    /// </summary>
+    [CacheFlush(CacheKey.ClientConfig)]
+    public string? CustomHeaderTitle { get; set; }
+
+    /// <summary>
+    /// Custom subtitle displayed on pages
+    /// </summary>
+    [CacheFlush(CacheKey.ClientConfig)]
+    public string? CustomPageSubtitle { get; set; }
+
+    /// <summary>
     /// Site description information
     /// </summary>
     [CacheFlush(CacheKey.Index)]
@@ -315,7 +341,9 @@ public class GlobalConfig
     /// Platform name, used for email and homepage rendering
     /// </summary>
     [JsonIgnore]
-    public string Platform => string.IsNullOrEmpty(Title) ? "GZ::CTF" : $"{Title}::CTF";
+    public string Platform => NamingStyle == "Custom" && !string.IsNullOrWhiteSpace(CustomWebsiteTitle)
+        ? CustomWebsiteTitle
+        : string.IsNullOrEmpty(Title) ? "GZ::CTF" : $"{Title}::CTF";
 }
 
 /// <summary>
@@ -333,6 +361,26 @@ public partial class ClientConfig
     /// Platform slogan
     /// </summary>
     public string Slogan { get; set; } = "Hack for fun not for profit";
+
+    /// <summary>
+    /// Platform naming style
+    /// </summary>
+    public string NamingStyle { get; set; } = "Original";
+
+    /// <summary>
+    /// Custom website title
+    /// </summary>
+    public string? CustomWebsiteTitle { get; set; }
+
+    /// <summary>
+    /// Custom title displayed in the website header
+    /// </summary>
+    public string? CustomHeaderTitle { get; set; }
+
+    /// <summary>
+    /// Custom subtitle displayed on pages
+    /// </summary>
+    public string? CustomPageSubtitle { get; set; }
 
     /// <summary>
     /// Footer information
@@ -405,6 +453,10 @@ public partial class ClientConfig
         {
             Title = globalConfig.Title,
             Slogan = globalConfig.Slogan,
+            NamingStyle = globalConfig.NamingStyle,
+            CustomWebsiteTitle = globalConfig.CustomWebsiteTitle,
+            CustomHeaderTitle = globalConfig.CustomHeaderTitle,
+            CustomPageSubtitle = globalConfig.CustomPageSubtitle,
             FooterInfo = globalConfig.FooterInfo,
             CustomTheme = globalConfig.CustomTheme,
             FeaturedGameId = globalConfig.FeaturedGameId,

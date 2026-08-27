@@ -5,6 +5,7 @@ import { Icon } from '@mdi/react'
 import { Wsrx, WsrxError, WsrxErrorKind, WsrxFeature, WsrxOptions, WsrxState } from '@xdsec/wsrx'
 import { t } from 'i18next'
 import { createContext, useCallback, use, useEffect, useMemo, useState } from 'react'
+import { getPlatformNaming } from '@Utils/PlatformNaming'
 import { showErrorMsg } from '@Utils/Shared'
 import { useConfig } from '@Hooks/useConfig'
 
@@ -118,8 +119,8 @@ export const WsrxProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, [wsrx, wsrxOptions, doWsrxConnect])
 
   useEffect(() => {
-    if (platformConfig?.config.title) {
-      const newName = platformConfig.config.title + '::CTF'
+    if (platformConfig?.config) {
+      const newName = getPlatformNaming(platformConfig.config).websiteTitle
       setWsrxOptions((prevOptions) => {
         if (prevOptions.name === newName) return prevOptions
         return {
@@ -128,7 +129,7 @@ export const WsrxProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
       })
     }
-  }, [platformConfig?.config.title, setWsrxOptions])
+  }, [platformConfig?.config, setWsrxOptions])
 
   const updateState = useCallback((newState: WsrxState) => {
     setWsrxState((prev) => {

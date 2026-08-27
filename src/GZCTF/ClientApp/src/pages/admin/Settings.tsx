@@ -46,6 +46,11 @@ const SIDEBAR_ITEM_OPTIONS = [
 
 const DEFAULT_SIDEBAR_ITEMS = ['home', ...SIDEBAR_ITEM_OPTIONS.map((item) => item.value)]
 
+const NAMING_STYLE_OPTIONS = [
+  { value: 'Original', label: '原始命名' },
+  { value: 'Custom', label: '自定义' },
+]
+
 const parseSidebarItems = (value?: string | null) =>
   (value ?? DEFAULT_SIDEBAR_ITEMS.join(','))
     .split(',')
@@ -150,29 +155,80 @@ const Configs: FC = () => {
           <Divider />
           <Grid columns={4} align="center" className={layoutClasses.mobileStackGrid}>
             <Grid.Col span={1}>
-              <TextInput
-                label={t('admin.content.settings.platform.name.label')}
-                description={t('admin.content.settings.platform.name.description')}
-                placeholder="GZ"
+              <Select
+                label="命名风格"
+                description="原始命名只显示平台名称；自定义显示网站标题、网站副标题和网站顶部标题栏"
+                data={NAMING_STYLE_OPTIONS}
                 disabled={disabled}
-                value={globalConfig?.title ?? ''}
-                onChange={(e) => {
-                  setGlobalConfig({ ...globalConfig, title: e.currentTarget.value })
-                }}
+                value={globalConfig?.namingStyle ?? 'Original'}
+                onChange={(namingStyle) =>
+                  setGlobalConfig({
+                    ...globalConfig,
+                    namingStyle: namingStyle ?? 'Original',
+                  })
+                }
               />
             </Grid.Col>
-            <Grid.Col span={1}>
-              <TextInput
-                label={t('admin.content.settings.platform.slogan.label')}
-                description={t('admin.content.settings.platform.slogan.description')}
-                placeholder="Hack for fun not for profit"
-                disabled={disabled}
-                value={globalConfig?.slogan ?? ''}
-                onChange={(e) => {
-                  setGlobalConfig({ ...globalConfig, slogan: e.currentTarget.value })
-                }}
-              />
-            </Grid.Col>
+            {globalConfig?.namingStyle === 'Custom' && (
+              <>
+                <Grid.Col span={1}>
+                  <TextInput
+                    label="网站标题"
+                    description="用于浏览器标题、HTML 标题和邮件平台名称"
+                    disabled={disabled}
+                    value={globalConfig?.customWebsiteTitle ?? ''}
+                    onChange={(e) =>
+                      setGlobalConfig({
+                        ...globalConfig,
+                        customWebsiteTitle: e.currentTarget.value,
+                      })
+                    }
+                  />
+                </Grid.Col>
+                <Grid.Col span={1}>
+                  <TextInput
+                    label="网站副标题"
+                    description="用于页面顶部与关于页副标题"
+                    disabled={disabled}
+                    value={globalConfig?.customPageSubtitle ?? ''}
+                    onChange={(e) =>
+                      setGlobalConfig({
+                        ...globalConfig,
+                        customPageSubtitle: e.currentTarget.value,
+                      })
+                    }
+                  />
+                </Grid.Col>
+                <Grid.Col span={1}>
+                  <TextInput
+                    label="网站顶部标题栏"
+                    description="用于导航栏、侧栏、登录页、页脚和关于页标题"
+                    disabled={disabled}
+                    value={globalConfig?.customHeaderTitle ?? ''}
+                    onChange={(e) =>
+                      setGlobalConfig({
+                        ...globalConfig,
+                        customHeaderTitle: e.currentTarget.value,
+                      })
+                    }
+                  />
+                </Grid.Col>
+              </>
+            )}
+            {globalConfig?.namingStyle !== 'Custom' && (
+              <Grid.Col span={1}>
+                <TextInput
+                  label={t('admin.content.settings.platform.name.label')}
+                  description={t('admin.content.settings.platform.name.description')}
+                  placeholder="GZ"
+                  disabled={disabled}
+                  value={globalConfig?.title ?? ''}
+                  onChange={(e) => {
+                    setGlobalConfig({ ...globalConfig, title: e.currentTarget.value })
+                  }}
+                />
+              </Grid.Col>
+            )}
             <Grid.Col span={1}>
               <FileInput
                 size="sm"

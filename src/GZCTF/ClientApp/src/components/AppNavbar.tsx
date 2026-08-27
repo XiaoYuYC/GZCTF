@@ -20,7 +20,6 @@ import {
   mdiLogout,
   mdiNoteTextOutline,
   mdiPalette,
-  mdiTranslate,
   mdiWeatherNight,
   mdiWeatherSunny,
   mdiWrenchOutline,
@@ -35,7 +34,6 @@ import { LogoBox } from '@Components/LogoBox'
 import { AppControlProps } from '@Components/WithNavbar'
 import { WsrxManager } from '@Components/WsrxManager'
 import { clearLocalCache } from '@Utils/Cache'
-import { LanguageMap, SupportedLanguages, useLanguage } from '@Utils/I18n'
 import { useConfig } from '@Hooks/useConfig'
 import { useLogOut, useUser } from '@Hooks/useUser'
 import { ContainerPortMappingType, Role } from '@Api'
@@ -87,7 +85,6 @@ export const AppNavbar: FC<AppControlProps> = ({ openColorModal }) => {
   const { user, error } = useUser()
   const { config } = useConfig()
   const { t } = useTranslation()
-  const { setLanguage, supportedLanguages } = useLanguage()
 
   const items: NavbarItem[] = [
     { id: 'home', icon: mdiHomeVariantOutline, label: 'common.tab.home', link: '/', required: true },
@@ -157,23 +154,6 @@ export const AppNavbar: FC<AppControlProps> = ({ openColorModal }) => {
           )}
 
           {/* Sidebar visibility is configured by administrators. */}
-
-          {/* Language */}
-          <Menu position="right" offset={24} width={160}>
-            <Menu.Target>
-              <ActionIcon className={classes.link}>
-                <Icon path={mdiTranslate} size={1} />
-              </ActionIcon>
-            </Menu.Target>
-
-            <Menu.Dropdown>
-              {supportedLanguages.map((lang: SupportedLanguages) => (
-                <Menu.Item key={lang} fw={500} onClick={() => setLanguage(lang)}>
-                  {LanguageMap[lang] ?? lang}
-                </Menu.Item>
-              ))}
-            </Menu.Dropdown>
-          </Menu>
 
           {/* Color Mode */}
           <Tooltip

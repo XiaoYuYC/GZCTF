@@ -17,6 +17,7 @@ export function i18nVirtualManifest(): Plugin {
 
     try {
       fs.readdirSync(localesDir)
+        .filter((file) => file === 'zh-CN')
         .filter(function (file) {
           return fs.statSync(path.join(localesDir, file)).isDirectory()
         })

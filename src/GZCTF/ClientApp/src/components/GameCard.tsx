@@ -1,5 +1,4 @@
 import {
-  BackgroundImage,
   Badge,
   Card,
   Center,
@@ -58,19 +57,19 @@ export const GameCard: FC<GameCardProps> = ({ game, ...others }) => {
       to={`/games/${game.id}`}
       classNames={{ root: misc.hoverCard }}
     >
-      <Card.Section>
-        <BackgroundImage src={poster ?? ''} h="12rem" w="100%" pos="relative">
-          {!poster && (
-            <Center h="100%">
-              <Icon path={mdiFlagOutline} size={4} color={theme.colors.gray[5]} />
-            </Center>
-          )}
-          <Center pos="absolute" top={8} right={8}>
-            <Badge color={color} size="sm" variant="filled">
-              {status}
-            </Badge>
+      <Card.Section className={misc.posterFrame} pos="relative">
+        {poster ? (
+          <img className={misc.posterImage} src={poster} alt="poster" />
+        ) : (
+          <Center h="100%">
+            <Icon path={mdiFlagOutline} size={4} color={theme.colors.gray[5]} />
           </Center>
-        </BackgroundImage>
+        )}
+        <Center pos="absolute" top={8} right={8}>
+          <Badge color={color} size="sm" variant="filled">
+            {status}
+          </Badge>
+        </Center>
       </Card.Section>
       <Stack gap="sm" pt="sm" miw={0}>
         <Group gap={0} justify="space-between" align="flex-start" miw={0}>

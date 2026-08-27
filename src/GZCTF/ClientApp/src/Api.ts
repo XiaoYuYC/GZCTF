@@ -385,6 +385,14 @@ export interface GlobalConfig {
   title?: string;
   /** Platform slogan */
   slogan?: string;
+  /** Platform naming style */
+  namingStyle?: string;
+  /** Custom website title */
+  customWebsiteTitle?: string | null;
+  /** Custom title displayed in the website header */
+  customHeaderTitle?: string | null;
+  /** Custom subtitle displayed on pages */
+  customPageSubtitle?: string | null;
   /** Site description information */
   description?: string | null;
   /** Footer information */
@@ -2094,6 +2102,14 @@ export interface ClientConfig {
   title?: string;
   /** Platform slogan */
   slogan?: string;
+  /** Platform naming style */
+  namingStyle?: string;
+  /** Custom website title */
+  customWebsiteTitle?: string | null;
+  /** Custom title displayed in the website header */
+  customHeaderTitle?: string | null;
+  /** Custom subtitle displayed on pages */
+  customPageSubtitle?: string | null;
   /** Footer information */
   footerInfo?: string | null;
   /** Custom theme color */

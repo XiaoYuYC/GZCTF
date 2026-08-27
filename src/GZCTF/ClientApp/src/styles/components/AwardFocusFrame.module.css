@@ -1,0 +1,110 @@
+.frame {
+  position: relative;
+  min-width: 0;
+  outline: none;
+  border-radius: var(--mantine-radius-lg);
+  isolation: isolate;
+}
+
+.frame::before,
+.frame::after {
+  position: absolute;
+  z-index: -1;
+  inset: -3px;
+  border: 2px solid var(--award-primary);
+  border-radius: inherit;
+  pointer-events: none;
+  content: '';
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.frame::after {
+  border-color: var(--award-secondary);
+}
+
+.frame:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--mantine-color-body),
+    0 0 0 4px color-mix(in srgb, var(--award-primary) 80%, transparent),
+    0 0 22px color-mix(in srgb, var(--award-primary) 30%, transparent);
+}
+
+.frame:focus-visible::before {
+  animation: award-focus-ripple 1.8s ease-out infinite;
+}
+
+.frame:focus-visible::after {
+  animation: award-focus-ripple 1.8s 0.55s ease-out infinite;
+}
+
+.sweep {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.sweep::after {
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  left: -35%;
+  width: 20%;
+  content: '';
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--award-secondary) 65%, white), transparent);
+  opacity: 0;
+  transform: skewX(-18deg);
+}
+
+.frame:focus-visible .sweep::after {
+  animation: award-focus-sweep 700ms ease-out 1;
+}
+
+@keyframes award-focus-ripple {
+  0% {
+    opacity: 0.65;
+    transform: scale(0.98);
+  }
+
+  70% {
+    opacity: 0.22;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes award-focus-sweep {
+  0% {
+    left: -35%;
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 0.7;
+  }
+
+  100% {
+    left: 120%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame:focus-visible::before,
+  .frame:focus-visible::after,
+  .frame:focus-visible .sweep::after {
+    animation: none;
+  }
+
+  .frame:focus-visible::before,
+  .frame:focus-visible::after {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+}

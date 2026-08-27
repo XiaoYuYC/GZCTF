@@ -2,6 +2,8 @@ import { Card, Container, Group, Image, Paper, SimpleGrid, Stack, Text, Title } 
 import { FC, MouseEvent, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
+import { AwardDescription } from '@Components/AwardDescription'
+import { AwardFocusFrame } from '@Components/AwardFocusFrame'
 import { showErrorMsg } from '@Utils/Shared'
 import api, { AwardResponse, SponsorResponse } from '@Api'
 
@@ -59,10 +61,6 @@ const GameSponsorsAndAwards: FC = () => {
         {/* 赞助商区域 */}
         {sponsors.length > 0 && (
           <Stack gap="lg">
-            <Title order={2} ta="center">
-              赞助商
-            </Title>
-
             {Object.entries(groupedSponsors).map(([type, typeSponsors]) => (
               <Stack key={type} gap="md">
                 <Title order={3} ta="center" c="dimmed" size="h4">
@@ -81,6 +79,7 @@ const GameSponsorsAndAwards: FC = () => {
                       style={{
                         cursor: sponsor.website ? 'pointer' : 'default',
                         transition: 'transform 0.2s',
+                        background: 'transparent',
                       }}
                       onMouseEnter={(e: MouseEvent<HTMLElement>) => {
                         if (sponsor.website) {
@@ -100,7 +99,7 @@ const GameSponsorsAndAwards: FC = () => {
                             fit="contain"
                           />
                         ) : (
-                          <Paper p="xl" bg="var(--mantine-color-gray-1)" style={{ width: '100%', height: 80 }}>
+                          <Paper p="xl" bg="transparent" style={{ width: '100%', height: 80 }}>
                             <Text ta="center" fw={600} size="lg">
                               {sponsor.shortName}
                             </Text>
@@ -127,37 +126,39 @@ const GameSponsorsAndAwards: FC = () => {
             </Title>
 
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-              {awards.map((award) => (
-                <Card
-                  key={award.id}
-                  shadow="sm"
-                  padding="lg"
-                  style={{
-                    background: `linear-gradient(135deg, ${award.primaryColor || '#3B6DFF'}22 0%, ${award.secondaryColor || '#6EE7B7'}22 100%)`,
-                    borderLeft: `4px solid ${award.primaryColor || '#3B6DFF'}`,
-                  }}
-                >
-                  <Stack gap="md">
-                    <Group justify="space-between" align="flex-start">
-                      <Title order={4}>{award.name}</Title>
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          background: `linear-gradient(135deg, ${award.primaryColor || '#3B6DFF'}, ${award.secondaryColor || '#6EE7B7'})`,
-                        }}
-                      />
-                    </Group>
+              {awards.map((award) => {
+                const primaryColor = award.primaryColor || '#3B6DFF'
+                const secondaryColor = award.secondaryColor || '#6EE7B7'
 
-                    {award.description && (
-                      <Text size="sm" c="dimmed">
-                        {award.description}
-                      </Text>
-                    )}
-                  </Stack>
-                </Card>
-              ))}
+                return (
+                  <AwardFocusFrame key={award.id} primaryColor={primaryColor} secondaryColor={secondaryColor}>
+                    <Card
+                      shadow="sm"
+                      padding="lg"
+                      style={{
+                        background: `linear-gradient(135deg, ${primaryColor}22 0%, ${secondaryColor}22 100%)`,
+                        borderLeft: `4px solid ${primaryColor}`,
+                      }}
+                    >
+                      <Stack gap="md">
+                        <Group justify="space-between" align="flex-start">
+                          <Title order={4}>{award.name}</Title>
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: '50%',
+                              background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                            }}
+                          />
+                        </Group>
+
+                        {award.description && <AwardDescription source={award.description} />}
+                      </Stack>
+                    </Card>
+                  </AwardFocusFrame>
+                )
+              })}
             </SimpleGrid>
           </Stack>
         )}

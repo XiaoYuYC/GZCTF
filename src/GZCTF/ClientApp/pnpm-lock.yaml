@@ -107,9 +107,6 @@ importers:
       i18next:
         specifier: ^26.3.6
         version: 26.3.6(typescript@7.0.2)
-      i18next-browser-languagedetector:
-        specifier: ^8.2.1
-        version: 8.2.1
       i18next-resources-to-backend:
         specifier: ^1.2.2
         version: 1.2.2
@@ -1788,9 +1785,6 @@ packages:
   https-proxy-agent@5.0.1:
     resolution: {integrity: sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA==}
     engines: {node: '>= 6'}
-
-  i18next-browser-languagedetector@8.2.1:
-    resolution: {integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==}
 
   i18next-resources-to-backend@1.2.2:
     resolution: {integrity: sha512-1qDy4c67qurkyLKXoFncMBB0XmXJE0GHoPCx7ONbDoq9R3puhjOpfUERbtWcwfulbXvxwdqWRmB4DIud+nLpuw==}
@@ -4100,10 +4094,6 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
-
-  i18next-browser-languagedetector@8.2.1:
-    dependencies:
-      '@babel/runtime': 7.29.7
 
   i18next-resources-to-backend@1.2.2:
     dependencies:

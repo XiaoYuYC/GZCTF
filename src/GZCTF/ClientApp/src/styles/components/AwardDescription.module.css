@@ -1,0 +1,80 @@
+.description {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 3.5em;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  overflow-wrap: anywhere;
+
+  & > div {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  & > div :where(h1, h2, h3, h4, h5, h6) {
+    max-width: 100%;
+    margin: var(--mantine-spacing-xs) 0;
+    color: inherit;
+    line-height: var(--mantine-line-height-sm);
+    overflow-wrap: anywhere;
+  }
+
+  & > div :where(h1, h2) {
+    font-size: var(--mantine-font-size-lg);
+  }
+
+  & > div :where(h3, h4, h5, h6) {
+    font-size: var(--mantine-font-size-md);
+  }
+
+  & > div :where(p) {
+    max-width: 100%;
+    margin-bottom: var(--mantine-spacing-xs);
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
+  & > div :where(ul, ol) {
+    max-width: 100%;
+    margin-top: var(--mantine-spacing-xs);
+    margin-bottom: var(--mantine-spacing-xs);
+  }
+
+  & > div :where(blockquote) {
+    max-width: 100%;
+    margin: var(--mantine-spacing-xs) 0;
+    font-size: inherit;
+  }
+
+  & > div :where(pre) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  & > div :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  & > div :where(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  & > div :where(a, code) {
+    overflow-wrap: anywhere;
+  }
+
+  & > div > :first-child {
+    margin-top: 0;
+  }
+
+  & > div > :last-child {
+    margin-bottom: 0;
+  }
+}

@@ -1,4 +1,4 @@
-import { Badge, Group, Paper, Stack, Title } from '@mantine/core'
+import { Badge, Box, Group, Paper, Stack, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import { FC } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -33,6 +33,7 @@ export const RecentGameSlide: FC<RecentGameProps> = ({ game, ...others }) => {
       }}
       className={classes.card}
     >
+      {poster && <Box className={classes.poster} aria-hidden="true" />}
       <Stack h="100%" gap={2} justify="space-between">
         <Group gap={4}>
           <Badge size="sm" variant="filled">

@@ -8,6 +8,7 @@ import classes from '@Styles/Typography.module.css'
 
 export interface MarkdownProps extends React.ComponentPropsWithoutRef<'div'> {
   source: string
+  breaks?: boolean
 }
 
 interface InlineMarkdownProps extends TextProps {
@@ -48,14 +49,14 @@ export const ContentPlaceholder: FC = () => (
   </>
 )
 
-const MarkdownRenderer: FC<Pick<MarkdownProps, 'source'>> = (props) => {
-  const { source } = props
+const MarkdownRenderer: FC<Pick<MarkdownProps, 'source' | 'breaks'>> = (props) => {
+  const { source, breaks } = props
 
   const marked = useMemo(() => {
     const instance = new Marked()
-    instance.use(KatexExtension()).use(ShikiExtension()).setOptions({ silent: true })
+    instance.use(KatexExtension()).use(ShikiExtension()).setOptions({ silent: true, breaks })
     return instance
-  }, [])
+  }, [breaks])
 
   const html = useMemo(() => marked.parse(source), [marked, source])
 
@@ -63,12 +64,12 @@ const MarkdownRenderer: FC<Pick<MarkdownProps, 'source'>> = (props) => {
 }
 
 export const Markdown = forwardRef<HTMLDivElement, MarkdownProps>((props, ref) => {
-  const { source, ...others } = props
+  const { source, breaks, ...others } = props
 
   return (
     <Typography ref={ref} {...others}>
       <Suspense fallback={<ContentPlaceholder />}>
-        <MarkdownRenderer source={source} />
+        <MarkdownRenderer source={source} breaks={breaks} />
       </Suspense>
     </Typography>
   )

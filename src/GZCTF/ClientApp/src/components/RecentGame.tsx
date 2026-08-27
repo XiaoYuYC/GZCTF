@@ -34,11 +34,11 @@ export const RecentGame: FC<RecentGameProps> = ({ game, ...others }) => {
 
   return (
     <Card {...others} shadow="sm" component={Link} to={`/games/${game.id}`} classNames={{ root: misc.hoverCard }}>
-      <Card.Section pos="relative">
+      <Card.Section pos="relative" className={misc.recentPosterFrame}>
         {poster ? (
-          <Image src={poster} h={POSTER_HEIGHT} alt="poster" />
+          <Image src={poster} w="100%" h="100%" fit="contain" alt="poster" />
         ) : (
-          <Center mih={POSTER_HEIGHT}>
+          <Center h="100%">
             <Icon path={mdiFlagOutline} size={4} color={theme.colors.gray[5]} />
           </Center>
         )}

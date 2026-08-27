@@ -3,6 +3,7 @@ import { FC } from 'react'
 import { Copyright } from '@Components/Copyright'
 import { FooterRender } from '@Components/FooterRender'
 import { MainIcon } from '@Components/icon/MainIcon'
+import { getPlatformNaming } from '@Utils/PlatformNaming'
 import { useIsMobile } from '@Utils/ThemeOverride'
 import { useConfig } from '@Hooks/useConfig'
 import classes from '@Styles/AppFooter.module.css'
@@ -10,6 +11,7 @@ import logoClasses from '@Styles/LogoHeader.module.css'
 
 export const AppFooter: FC = () => {
   const { config } = useConfig()
+  const { headerTitle, isCustom } = getPlatformNaming(config)
   const isMobile = useIsMobile()
 
   return (
@@ -21,7 +23,14 @@ export const AppFooter: FC = () => {
             <Stack w="100%" align="center" gap={2}>
               <MainIcon size={isMobile ? '3rem' : '4rem'} />
               <Text fw="bold" size={isMobile ? '2rem' : '2.5rem'}>
-                GZ<span className={logoClasses.brand}>::</span>CTF
+                {isCustom ? (
+                  headerTitle
+                ) : (
+                  <>
+                    {config?.title ?? 'GZ'}
+                    <span className={logoClasses.brand}>::</span>CTF
+                  </>
+                )}
               </Text>
             </Stack>
             {isMobile ? (
