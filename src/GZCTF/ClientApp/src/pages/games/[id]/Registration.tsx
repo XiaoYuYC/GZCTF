@@ -205,7 +205,6 @@ const GameRegistration: FC = () => {
   const [disabled, setDisabled] = useState(false)
 
   const [teamName, setTeamName] = useInputState('')
-  const [teamBio, setTeamBio] = useInputState('')
   const [selectedDivision, setSelectedDivision] = useInputState('')
   const [formData, setFormData] = useInputState('')
   const [captainEmail, setCaptainEmail] = useInputState('')
@@ -724,7 +723,6 @@ const GameRegistration: FC = () => {
       const registrationRequest = {
         gameId: numId,
         teamName: teamName.trim(),
-        teamBio: teamBio.trim() || null,
         divisionId: parseInt(selectedDivision),
         formData: submittedFormData,
         captainEmail: !user ? captainEmail.trim() : undefined,
@@ -915,26 +913,18 @@ const GameRegistration: FC = () => {
                     <TextInput
                       label="队伍名称"
                       description="提交报名后将自动创建该队伍，您将成为队长"
+                      placeholder="请输入队伍名称"
                       required
                       maxLength={20}
                       value={teamName}
                       onChange={setTeamName}
                       disabled={disabled}
                     />
-                    <Textarea
-                      label="队伍简介"
-                      description="可选，最多 72 个字符"
-                      maxLength={72}
-                      minRows={2}
-                      maxRows={4}
-                      value={teamBio}
-                      onChange={setTeamBio}
-                      disabled={disabled}
-                    />
+                    {/* 队伍简介不在报名表单中展示 */}
 
                     {teamFields.map((field) => renderRegistrationField(field))}
 
-                    {fieldSchema.error ? (
+                    {fieldSchema.error && (
                       <>
                         <Alert icon={<Icon path={mdiAlertCircle} size={1} />} color="orange" title="报名字段配置异常">
                           {fieldSchema.error}，请按 JSON 格式填写报名信息。
@@ -954,15 +944,6 @@ const GameRegistration: FC = () => {
                           }}
                         />
                       </>
-                    ) : (
-                      <Textarea
-                        label="补充信息"
-                        description="可选，填写额外的报名信息"
-                        value={formData}
-                        onChange={setFormData}
-                        minRows={4}
-                        disabled={disabled}
-                      />
                     )}
 
                     <Divider label="队长信息" labelPosition="center" />
@@ -973,6 +954,7 @@ const GameRegistration: FC = () => {
                           label="队长邮箱"
                           description="用于接收报名确认邮件和验证码"
                           type="email"
+                          placeholder="请输入队长邮箱"
                           required
                           value={captainEmail}
                           onChange={setCaptainEmail}
@@ -982,6 +964,7 @@ const GameRegistration: FC = () => {
                           <TextInput
                             label="验证码"
                             description="点击获取验证码并完成滑动验证"
+                            placeholder="请输入验证码"
                             required
                             value={verificationCode}
                             onChange={setVerificationCode}
@@ -1035,6 +1018,7 @@ const GameRegistration: FC = () => {
                               <TextInput
                                 label="邮箱"
                                 type="email"
+                                placeholder=""
                                 required
                                 value={member.email}
                                 onChange={(e) => updateMemberEmail(member.id, e.currentTarget.value)}
