@@ -303,9 +303,8 @@ public class RegistrationController(
         if (uniqueError is not null)
             return BadRequest(new RequestResponse(uniqueError));
 
-        var status = division.DefaultPermissions.HasFlag(GamePermission.RequireReview)
-            ? "PENDING"
-            : "APPROVED";
+        // 无需登录报名统一进入人工审核；账号和队伍只在审核通过后创建。
+        const string status = "PENDING";
 
         try
         {
@@ -484,10 +483,20 @@ public class RegistrationController(
             return NotFound(new RequestResponse("比赛不存在"));
 
         var previousStatus = registration.Status;
-        registration = await registrationRepository.UpdateRegistrationStatus(id, "CANCELLED", null, null, token) ?? registration;
-        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
-
-        await transaction.CommitAsync(token);
+        try
+        {
+            await ReleaseRegistrationResources(registration, token);
+            registration = await registrationRepository.UpdateRegistrationStatus(registration, "CANCELLED", null, null,
+                token) ?? registration;
+            await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
+            await transaction.CommitAsync(token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            await transaction.RollbackAsync(token);
+            logger.LogWarning(exception, "清理报名 {RegistrationId} 的审核资源失败", registration.Id);
+            return Conflict(new RequestResponse(exception.Message, StatusCodes.Status409Conflict));
+        }
         await cache.RemoveAsync(queryKey, token);
         if (!string.IsNullOrWhiteSpace(captainEmail))
             QueueNoAuthCancellationNotification(game, captainEmail, registration.Division);
@@ -581,29 +590,36 @@ public class RegistrationController(
         if (game is null || division is null)
             return NotFound(new RequestResponse("报名关联数据不存在"));
 
+        var reviewerClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(reviewerClaim, out var reviewerId);
+
+        // 无需登录报名被拒绝时，清理本报名审核通过阶段创建的全部资源。
+        if (string.Equals(request.Status, "REJECTED", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(registration.CaptainEmail))
+        {
+            await using var rejectionTransaction = await db.Database.BeginTransactionAsync(token);
+            try
+            {
+                await ReleaseRegistrationResources(registration, token);
+                registration = await registrationRepository.UpdateRegistrationStatus(registration, request.Status,
+                    request.ReviewNote, reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
+                await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
+                await rejectionTransaction.CommitAsync(token);
+            }
+            catch (InvalidOperationException exception)
+            {
+                await rejectionTransaction.RollbackAsync(token);
+                logger.LogWarning(exception, "清理报名 {RegistrationId} 的审核资源失败", registration.Id);
+                return Conflict(new RequestResponse(exception.Message, StatusCodes.Status409Conflict));
+            }
+
+            QueueNoAuthRejectionNotification(game, registration.CaptainEmail!, division, request.ReviewNote);
+            return Ok(RegistrationResponse.FromEntity(registration));
+        }
+
         // 无需登录报名：审核通过时自动创建账号和队伍
         if (!registration.TeamId.HasValue)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            Guid.TryParse(userId, out var reviewerId);
-
-            // 拒绝时同步释放可能由旧版审核创建的参赛关系。
-            if (string.Equals(request.Status, "REJECTED", StringComparison.OrdinalIgnoreCase))
-            {
-                await using var rejectionTransaction = await db.Database.BeginTransactionAsync(token);
-                await ReleaseRegistrationParticipation(registration, token);
-                registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
-                    reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
-                await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
-                await rejectionTransaction.CommitAsync(token);
-
-                // 发送拒绝通知邮件给队长
-                if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
-                    QueueNoAuthRejectionNotification(game, registration.CaptainEmail, division, request.ReviewNote);
-
-                return Ok(RegistrationResponse.FromEntity(registration));
-            }
-
             // 审核通过：创建队长和队员账号、创建队伍
             if (string.IsNullOrWhiteSpace(registration.CaptainEmail))
                 return BadRequest(new RequestResponse("无登录报名缺少队长邮箱"));
@@ -682,6 +698,12 @@ public class RegistrationController(
 
                 var allUsers = new List<UserInfo> { captain };
                 allUsers.AddRange(memberUsers.Select(m => m.user));
+                var provisionedUserIds = new List<Guid>();
+                if (captainProvision.Created)
+                    provisionedUserIds.Add(captain.Id);
+                provisionedUserIds.AddRange(memberUsers
+                    .Where(member => member.created)
+                    .Select(member => member.user.Id));
                 var historicalParticipationError = await ReleaseHistoricalRegistrationParticipation(registration, allUsers, token);
                 if (historicalParticipationError is not null)
                 {
@@ -738,6 +760,8 @@ public class RegistrationController(
 
                 // 6. 更新报名记录关联队伍
                 registration.TeamId = newTeam.Id;
+                registration.ProvisionedTeamId = newTeam.Id;
+                registration.ProvisionedUserIds = provisionedUserIds;
                 registration = await registrationRepository.UpdateRegistrationStatus(registration, request.Status, request.ReviewNote,
                     reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
 
@@ -813,7 +837,10 @@ public class RegistrationController(
         var registration = await registrationRepository.GetRegistrationById(id, token);
         if (registration is null)
             return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
-        if (registration.Status == "CANCELLED")
+        var hasProvisionedResources = !string.IsNullOrWhiteSpace(registration.CaptainEmail) &&
+                                      (registration.TeamId.HasValue || registration.ProvisionedTeamId.HasValue ||
+                                       (registration.ProvisionedUserIds?.Count ?? 0) > 0);
+        if (registration.Status == "CANCELLED" && !hasProvisionedResources)
             return Ok(RegistrationResponse.FromEntity(registration));
         var previousStatus = registration.Status;
 
@@ -822,18 +849,27 @@ public class RegistrationController(
             return NotFound(new RequestResponse("比赛不存在", StatusCodes.Status404NotFound));
 
         await using var transaction = await db.Database.BeginTransactionAsync(token);
+        var notificationTeam = registration.Team;
 
-        // 取消关联参赛记录，但保留历史成员关系，供原报名重新审核时复用。
-        await ReleaseRegistrationParticipation(registration, token);
-
-        registration = await registrationRepository.UpdateRegistrationStatus(id, "CANCELLED", null, null, token) ?? registration;
-        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
-        await transaction.CommitAsync(token);
-
-        // 通知逻辑：有队伍用队伍通知，无队伍用邮箱通知
-        if (registration.TeamId.HasValue && registration.Team is not null)
+        try
         {
-            QueueRegistrationNotification(game, registration.Team, registration.Division, "CANCELLED", null);
+            await ReleaseRegistrationResources(registration, token);
+            registration = await registrationRepository.UpdateRegistrationStatus(registration, "CANCELLED", null, null,
+                token) ?? registration;
+            await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
+            await transaction.CommitAsync(token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            await transaction.RollbackAsync(token);
+            logger.LogWarning(exception, "清理报名 {RegistrationId} 的审核资源失败", registration.Id);
+            return Conflict(new RequestResponse(exception.Message, StatusCodes.Status409Conflict));
+        }
+
+        // 通知逻辑：登录报名沿用队伍通知，无需登录报名使用邮箱通知。
+        if (string.IsNullOrWhiteSpace(registration.CaptainEmail) && notificationTeam is not null)
+        {
+            QueueRegistrationNotification(game, notificationTeam, registration.Division, "CANCELLED", null);
         }
         else if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
         {
@@ -871,14 +907,28 @@ public class RegistrationController(
         var previousStatus = registration.Status;
 
         await using var transaction = await db.Database.BeginTransactionAsync(token);
-        await ReleaseRegistrationParticipation(registration, token);
+        try
+        {
+            await ReleaseRegistrationResources(registration, token);
+            await registrationRepository.UpdateRegistration(registration, token);
 
-        var success = await registrationRepository.DeleteRegistration(id, token);
-        if (!success)
-            return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+            var success = await registrationRepository.DeleteRegistration(id, token);
+            if (!success)
+            {
+                await transaction.RollbackAsync(token);
+                return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+            }
 
-        await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "DELETED", token);
-        await transaction.CommitAsync(token);
+            await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "DELETED", token);
+            await transaction.CommitAsync(token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            await transaction.RollbackAsync(token);
+            logger.LogWarning(exception, "清理报名 {RegistrationId} 的审核资源失败", registration.Id);
+            return Conflict(new RequestResponse(exception.Message, StatusCodes.Status409Conflict));
+        }
+
         return Ok(new RequestResponse("报名记录已删除", StatusCodes.Status200OK));
     }
 
@@ -1181,6 +1231,107 @@ public class RegistrationController(
         if (changed)
             await db.SaveChangesAsync(token);
         return null;
+    }
+
+    internal async Task ReleaseRegistrationResources(Registration registration, CancellationToken token)
+    {
+        // 只有无需登录报名会记录 CaptainEmail；登录报名创建的既有账号和队伍不在此清理。
+        if (string.IsNullOrWhiteSpace(registration.CaptainEmail))
+        {
+            await ReleaseRegistrationParticipation(registration, token);
+            return;
+        }
+
+        // 新记录使用 ProvisionedTeamId；旧版无需登录记录只能使用其精确 TeamId，绝不按名称或邮箱猜测。
+        var provisionedTeamId = registration.ProvisionedTeamId ?? registration.TeamId;
+        var provisionedUserIds = (registration.ProvisionedUserIds ?? [])
+            .Where(userId => userId != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        if (provisionedUserIds.Length > 0)
+        {
+            // 删除账号会级联删除其担任队长的队伍，因此先阻止对其他队伍产生连带影响。
+            var usersInOtherTeams = await db.Users
+                .Where(user => provisionedUserIds.Contains(user.Id) &&
+                               user.Teams.Any(team => !provisionedTeamId.HasValue || team.Id != provisionedTeamId.Value))
+                .Select(user => user.Email ?? user.UserName ?? user.Id.ToString())
+                .ToListAsync(token);
+            var usersCaptainingOtherTeams = await db.Teams
+                .Where(team => provisionedUserIds.Contains(team.CaptainId) &&
+                               (!provisionedTeamId.HasValue || team.Id != provisionedTeamId.Value))
+                .Select(team => team.Captain!.Email ?? team.Captain.UserName ?? team.CaptainId.ToString())
+                .ToListAsync(token);
+            var usersInOtherParticipations = await db.UserParticipations
+                .Where(participation => provisionedUserIds.Contains(participation.UserId) &&
+                                        (!provisionedTeamId.HasValue ||
+                                         participation.TeamId != provisionedTeamId.Value))
+                .Select(participation => participation.User.Email ?? participation.User.UserName ??
+                                         participation.UserId.ToString())
+                .ToListAsync(token);
+            var externallyUsedAccounts = usersInOtherTeams
+                .Concat(usersCaptainingOtherTeams)
+                .Concat(usersInOtherParticipations)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (externallyUsedAccounts.Length > 0)
+                throw new InvalidOperationException(
+                    $"报名创建的账号已被其他队伍使用，请先处理关联队伍：{string.Join(", ", externallyUsedAccounts)}");
+        }
+
+        if (provisionedTeamId is { } teamId)
+        {
+            var provisionedTeam = await teamRepository.GetTeamById(teamId, token);
+            if (provisionedTeam is not null)
+            {
+                try
+                {
+                    await teamRepository.DeleteTeam(provisionedTeam, token);
+                }
+                catch (DbUpdateException exception)
+                {
+                    throw new InvalidOperationException("报名审核创建的队伍仍有关联数据，资源清理未完成", exception);
+                }
+            }
+        }
+
+        foreach (var provisionedUserId in provisionedUserIds)
+        {
+            var provisionedUser = await userManager.FindByIdAsync(provisionedUserId.ToString());
+            if (provisionedUser is null)
+                continue;
+
+            // API Token 对账号使用 Restrict 外键，先随本次创建的账号一并清理。
+            var apiTokens = await db.ApiTokens
+                .Where(apiToken => apiToken.CreatorId == provisionedUserId)
+                .ToListAsync(token);
+            if (apiTokens.Count > 0)
+            {
+                db.ApiTokens.RemoveRange(apiTokens);
+                await db.SaveChangesAsync(token);
+            }
+
+            try
+            {
+                var deletion = await userManager.DeleteAsync(provisionedUser);
+                if (!deletion.Succeeded)
+                    throw new InvalidOperationException(
+                        $"删除报名创建的账号 {provisionedUser.Email ?? provisionedUser.UserName} 失败：" +
+                        string.Join(", ", deletion.Errors.Select(error => error.Description)));
+            }
+            catch (DbUpdateException exception)
+            {
+                throw new InvalidOperationException(
+                    $"报名创建的账号 {provisionedUser.Email ?? provisionedUser.UserName} 仍有关联数据，资源清理未完成",
+                    exception);
+            }
+        }
+
+        // 资源已删除，报名历史继续按邮箱保存，不再保留失效的队伍关联或待清理 ID。
+        registration.TeamId = null;
+        registration.Team = null!;
+        registration.ProvisionedTeamId = null;
+        registration.ProvisionedUserIds = [];
     }
 
     private async Task ReleaseRegistrationParticipation(Registration registration, CancellationToken token)

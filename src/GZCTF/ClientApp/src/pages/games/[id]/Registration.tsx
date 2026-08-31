@@ -912,7 +912,7 @@ const GameRegistration: FC = () => {
 
                     <TextInput
                       label="队伍名称"
-                      description="提交报名后将自动创建该队伍，您将成为队长"
+                      description="审核通过后将创建账号和队伍，您将成为队长"
                       placeholder="请输入队伍名称"
                       required
                       maxLength={20}

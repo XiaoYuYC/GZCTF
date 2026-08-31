@@ -68,6 +68,30 @@ public sealed class RegistrationRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UpdateRegistrationStatus_MigratesReleasedResourcesBackToEmailKey()
+    {
+        var registration = await _repository.CreateRegistration(NewRegistration("captain@example.com"));
+        var provisionedUserId = Guid.NewGuid();
+        registration.TeamId = 42;
+        registration.ProvisionedTeamId = 42;
+        registration.ProvisionedUserIds = [provisionedUserId];
+        await _repository.UpdateRegistrationStatus(registration, "APPROVED", null, null);
+
+        registration.TeamId = null;
+        registration.ProvisionedTeamId = null;
+        registration.ProvisionedUserIds = [];
+        await _repository.UpdateRegistrationStatus(registration, "REJECTED", "cleanup", null);
+
+        Assert.Null(await _store.Get<Registration>("CYCTF:Registration:1:42"));
+        var stored = await _store.Get<Registration>("CYCTF:Registration:1:email:captain@example.com");
+        Assert.Equal(registration.Id, stored?.Id);
+        Assert.Equal("REJECTED", stored?.Status);
+        Assert.Null(stored?.TeamId);
+        Assert.Null(stored?.ProvisionedTeamId);
+        Assert.Empty(stored?.ProvisionedUserIds ?? []);
+    }
+
+    [Fact]
     public async Task UpdatingArchivedRegistration_DoesNotOverwriteCurrentEmailRegistration()
     {
         var first = await _repository.CreateRegistration(NewRegistration("captain@example.com"));

@@ -36,6 +36,16 @@ public class Registration
     public int DivisionId { get; set; }
 
     /// <summary>
+    /// 审核通过时由本报名创建的队伍 ID，用于后续清理。
+    /// </summary>
+    public int? ProvisionedTeamId { get; set; }
+
+    /// <summary>
+    /// 审核通过时由本报名新建的账号 ID，用于后续清理；已有账号不会记录在此处。
+    /// </summary>
+    public List<Guid> ProvisionedUserIds { get; set; } = [];
+
+    /// <summary>
     /// 报名状态（PENDING, APPROVED, REJECTED, CANCELLED）
     /// </summary>
     [Required]

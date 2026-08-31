@@ -4,6 +4,7 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     LC_ALL=en_US.UTF-8
 
 WORKDIR /app
+COPY ./GZCTF/src /app
 RUN sed -i 's#dl-cdn.alpinelinux.org/alpine#mirrors.aliyun.com/alpine#g' /etc/apk/repositories && \
     apk add --update --no-cache wget libpcap icu-data-full icu-libs \
     ca-certificates libgdiplus tzdata krb5-libs && \

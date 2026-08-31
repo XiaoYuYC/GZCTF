@@ -26,7 +26,18 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
             .ThenByDescending(item => item.Value.Deleted)
             .Select(item => item.Key)
             .FirstOrDefault();
-        return existingKey ?? EmailKey(registration.GameId, registration.CaptainEmail);
+        if (string.IsNullOrWhiteSpace(registration.CaptainEmail))
+            return existingKey ?? EmailKey(registration.GameId, null);
+
+        var archivePrefix = $"{RootPrefix}{registration.GameId}:history:";
+        if (existingKey?.StartsWith(archivePrefix, StringComparison.Ordinal) == true)
+            return existingKey;
+
+        var emailKey = EmailKey(registration.GameId, registration.CaptainEmail);
+        var currentEmailRegistration = await store.Get<Registration>(emailKey, token);
+        return currentEmailRegistration is null || currentEmailRegistration.Id == registration.Id
+            ? emailKey
+            : ArchiveKey(registration.GameId, registration.Id);
     }
 
     public async Task<List<Registration>> GetRegistrationsByGameId(int gameId, string? status = null,
