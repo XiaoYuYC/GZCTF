@@ -1,6 +1,7 @@
 .title {
   margin: 0;
   width: 100%;
+  min-width: 0;
 }
 
 .header {
@@ -9,6 +10,8 @@
 
 .body {
   padding-bottom: 0;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .content {
@@ -16,6 +19,8 @@
   flex-direction: column;
   justify-content: space-between;
   max-height: calc(50vh + 300px);
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .footer {
@@ -25,7 +30,29 @@
   background-color: var(--mantine-color-body);
   bottom: 0;
   width: 100%;
+  min-width: 0;
   z-index: 400;
   padding: var(--mantine-spacing-md);
   padding-top: var(--mantine-spacing-xs);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .header {
+    padding: var(--mantine-spacing-sm);
+    padding-bottom: var(--mantine-spacing-xs);
+  }
+
+  .body {
+    padding: var(--mantine-spacing-sm);
+    padding-top: 0;
+  }
+
+  .footer {
+    padding: var(--mantine-spacing-sm);
+    padding-top: var(--mantine-spacing-xs);
+  }
+
+  .content {
+    max-height: 46vh;
+  }
 }

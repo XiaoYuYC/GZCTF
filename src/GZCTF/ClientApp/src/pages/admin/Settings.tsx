@@ -95,7 +95,12 @@ const Configs: FC = () => {
       }
 
       mutate({ ...conf })
-      mutateConfig({ ...conf.globalConfig, ...conf.containerPolicy })
+      mutateConfig((current) => ({
+        ...current,
+        ...conf.globalConfig,
+        ...conf.containerPolicy,
+        ...(conf.accountPolicy?.allowRegister === undefined ? {} : { allowRegister: conf.accountPolicy.allowRegister }),
+      }))
       mutateCaptchaConfig()
     } catch (e) {
       showErrorMsg(e, t)

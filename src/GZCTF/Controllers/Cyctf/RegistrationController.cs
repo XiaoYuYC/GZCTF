@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Net;
 using System.Security.Claims;
@@ -524,26 +525,49 @@ public class RegistrationController(
 
     [HttpGet("games/{gameId:int}")]
     [RequireAdmin]
+    [ProducesResponseType(typeof(ArrayResponse<RegistrationResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetGameRegistrations(
-        int gameId, 
+        int gameId,
         [FromQuery] string? status,
         [FromQuery] bool? allMembersAccepted,
-        CancellationToken token)
+        [FromQuery] int? divisionId,
+        [FromQuery] int? teamSize,
+        [FromQuery][Range(1, 100)] int count = 30,
+        [FromQuery] int skip = 0,
+        CancellationToken token = default)
     {
+        if (skip < 0)
+            return BadRequest(new RequestResponse("分页参数无效", StatusCodes.Status400BadRequest));
+
         if (await gameRepository.GetGameById(gameId, token) is null)
             return NotFound(new RequestResponse("比赛不存在", StatusCodes.Status404NotFound));
-        
+
         var registrations = await registrationRepository.GetRegistrationsByGameId(gameId, status, token);
-        
-        // 前端筛选：是否全部成员接受邀请
+
+        // 管理后台筛选：组别、队伍人数和成员邀请状态。
+        if (divisionId.HasValue)
+            registrations = registrations.Where(r => r.DivisionId == divisionId.Value).ToList();
+
+        if (teamSize.HasValue)
+            registrations = registrations
+                .Where(r => RegistrationResponse.FromEntity(r).TeamSize == teamSize.Value)
+                .ToList();
+
         if (allMembersAccepted.HasValue)
         {
             registrations = registrations
                 .Where(r => RegistrationResponse.FromEntity(r).AllMembersAccepted == allMembersAccepted.Value)
                 .ToList();
         }
-        
-        return Ok(registrations.Select(RegistrationResponse.FromEntity));
+
+        var total = registrations.Count;
+        var page = registrations
+            .Skip(skip)
+            .Take(count)
+            .Select(RegistrationResponse.FromEntity)
+            .ToArray();
+
+        return Ok(new ArrayResponse<RegistrationResponse>(page, total));
     }
 
     [HttpGet("games/{gameId:int}/teams/{teamId:int}")]

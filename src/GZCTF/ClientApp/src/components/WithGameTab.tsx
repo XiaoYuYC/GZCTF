@@ -18,6 +18,7 @@ import { GameProgress } from '@Components/GameProgress'
 import { IconTabs } from '@Components/IconTabs'
 import { RequireRole } from '@Components/WithRole'
 import { DEFAULT_LOADING_OVERLAY } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { getGameStatus, useGame } from '@Hooks/useGame'
 import { usePageTitle } from '@Hooks/usePageTitle'
 import { useUserRole } from '@Hooks/useUser'
@@ -28,6 +29,7 @@ dayjs.extend(duration)
 
 const GameCountdown: FC<{ game?: DetailedGameInfoModel }> = ({ game }) => {
   const { endTime, progress } = getGameStatus(game)
+  const isMobile = useIsMobile()
 
   const [now, setNow] = useState(dayjs())
 
@@ -42,7 +44,13 @@ const GameCountdown: FC<{ game?: DetailedGameInfoModel }> = ({ game }) => {
   const countdown = dayjs.duration(endTime.diff(now))
 
   return (
-    <Card miw="9rem" ta="center" pt={4} className={misc.overflowVisible}>
+    <Card
+      miw={isMobile ? 0 : '9rem'}
+      w={isMobile ? '100%' : undefined}
+      ta="center"
+      pt={4}
+      className={misc.overflowVisible}
+    >
       <Text fw="bold" lineClamp={1}>
         {countdown.asHours() > 999
           ? t('game.content.game_lasts_long')

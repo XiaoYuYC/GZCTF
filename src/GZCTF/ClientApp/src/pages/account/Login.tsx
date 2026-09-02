@@ -28,6 +28,7 @@ const Login: FC = () => {
   const { captchaRef, getToken, cleanUp } = useCaptchaRef()
   const { user, mutate } = useUser()
   const { config } = useConfig()
+  const allowRegister = config.allowRegister ?? true
 
   const { t } = useTranslation()
 
@@ -142,12 +143,14 @@ const Login: FC = () => {
         {t('account.anchor.recovery')}
       </Anchor>
       <Grid grow w="100%">
-        <Grid.Col span={2}>
-          <Button fullWidth variant="outline" component={Link} to="/account/register">
-            {t('account.button.register')}
-          </Button>
-        </Grid.Col>
-        <Grid.Col span={2}>
+        {allowRegister ? (
+          <Grid.Col span={2}>
+            <Button fullWidth variant="outline" component={Link} to="/account/register">
+              {t('account.button.register')}
+            </Button>
+          </Grid.Col>
+        ) : null}
+        <Grid.Col span={allowRegister ? 2 : 4}>
           <Button fullWidth disabled={disabled} onClick={onLogin}>
             {t('account.button.login')}
           </Button>

@@ -4,6 +4,9 @@ import {
   Button,
   Group,
   Modal,
+  NumberInput,
+  Pagination,
+  Select,
   Tooltip,
   MultiSelect,
   Paper,
@@ -27,7 +30,7 @@ import {
 } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 import { parseRegistrationFields, RegistrationSubmissionDetails } from '@Components/RegistrationSubmissionDetails'
@@ -35,19 +38,33 @@ import type { RegistrationField } from '@Components/RegistrationSubmissionDetail
 import { WithGameEditTab } from '@Components/admin/WithGameEditTab'
 import { showErrorMsg } from '@Utils/Shared'
 import { useIsMobile } from '@Utils/ThemeOverride'
-import { useAdminGame } from '@Hooks/useGame'
-import api from '@Api'
-import type { RegistrationResponse } from '@Api'
+import { useAdminDivisions, useAdminGame } from '@Hooks/useGame'
+import api, { type ArrayResponseOfRegistrationResponse, type RegistrationResponse } from '@Api'
 import layoutClasses from '@Styles/AdminLayout.module.css'
+
+const ITEM_COUNT_PER_PAGE = 30
+
+type RegistrationSelection = {
+  page: number
+  index: number
+  id?: number
+}
 
 const CyctfRegistrations: FC = () => {
   const { id } = useParams()
   const numId = parseInt(id ?? '-1')
   const { game } = useAdminGame(numId)
+  const { divisions } = useAdminDivisions(numId)
   const { t } = useTranslation()
   const isMobile = useIsMobile()
 
   const [registrations, setRegistrations] = useState<RegistrationResponse[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadedPage, setLoadedPage] = useState(0)
+  const [pendingSelection, setPendingSelection] = useState<RegistrationSelection | null>(null)
+  const [loading, setLoading] = useState(false)
+  const requestSequence = useRef(0)
   const [stats, setStats] = useState<Record<string, number>>({})
   const [selectedReg, setSelectedReg] = useState<RegistrationResponse | null>(null)
   const [reviewNote, setReviewNote] = useInputState('')
@@ -55,7 +72,37 @@ const CyctfRegistrations: FC = () => {
   const [processingAction, setProcessingAction] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [memberFilter, setMemberFilter] = useState<string[]>([])
+  const [divisionFilter, setDivisionFilter] = useState<string | null>(null)
+  const [teamSizeFilter, setTeamSizeFilter] = useState<number | ''>('')
   const [divisionFields, setDivisionFields] = useState<RegistrationField[]>([])
+
+  const resetPagination = () => {
+    requestSequence.current += 1
+    setPage(1)
+    setLoadedPage(0)
+    setPendingSelection(null)
+    if (opened && !processingAction) {
+      close()
+      setSelectedReg(null)
+      setReviewNote('')
+    }
+  }
+
+  const divisionOptions = useMemo(
+    () =>
+      (divisions ?? []).map((division) => ({
+        value: division.id.toString(),
+        label: division.name.trim() || `组别 #${division.id}`,
+      })),
+    [divisions]
+  )
+
+  useEffect(() => {
+    if (divisionFilter && !divisionOptions.some((option) => option.value === divisionFilter)) {
+      resetPagination()
+      setDivisionFilter(null)
+    }
+  }, [divisionFilter, divisionOptions])
 
   useEffect(() => {
     if (!selectedReg?.divisionId) {
@@ -78,35 +125,60 @@ const CyctfRegistrations: FC = () => {
       active = false
     }
   }, [selectedReg?.divisionId])
-
-  useEffect(() => {
-    if (numId > 0) {
-      loadData()
-    }
-  }, [numId, statusFilter, memberFilter])
-
-  const loadData = async (): Promise<RegistrationResponse[]> => {
+  const loadData = async (targetPage = page): Promise<ArrayResponseOfRegistrationResponse | null> => {
+    const requestId = ++requestSequence.current
+    setLoading(true)
     try {
-      // 构建查询参数
       const statusParam = statusFilter.length > 0 ? statusFilter.join(',') : undefined
       const allMembersAcceptedParam = memberFilter.includes('allAccepted')
         ? true
         : memberFilter.includes('notAllAccepted')
           ? false
           : undefined
+      const divisionIdParam = divisionFilter ? Number(divisionFilter) : undefined
+      const teamSizeParam = teamSizeFilter === '' ? undefined : teamSizeFilter
 
-      const [regsRes, statsRes] = await Promise.all([
-        api.registration.registrationGetGameRegistrations(numId, statusParam, allMembersAcceptedParam),
-        api.registration.registrationGetRegistrationStats(numId),
-      ])
-      setRegistrations(regsRes.data)
-      setStats(statsRes.data)
-      return regsRes.data
+      const response = await api.registration.registrationGetGameRegistrations(
+        numId,
+        statusParam,
+        allMembersAcceptedParam,
+        divisionIdParam,
+        teamSizeParam,
+        ITEM_COUNT_PER_PAGE,
+        (targetPage - 1) * ITEM_COUNT_PER_PAGE
+      )
+
+      if (requestId !== requestSequence.current) return null
+
+      setRegistrations(response.data.data)
+      setTotal(response.data.total ?? response.data.length)
+      setLoadedPage(targetPage)
+      return response.data
     } catch (err) {
-      showErrorMsg(err, t)
-      return registrations
+      if (requestId === requestSequence.current) showErrorMsg(err, t)
+      return null
+    } finally {
+      if (requestId === requestSequence.current) setLoading(false)
     }
   }
+
+  const loadStats = async () => {
+    try {
+      const response = await api.registration.registrationGetRegistrationStats(numId)
+      setStats(response.data)
+    } catch (err) {
+      showErrorMsg(err, t)
+    }
+  }
+
+  useEffect(() => {
+    if (numId > 0) void loadData(page)
+  }, [numId, page, statusFilter, memberFilter, divisionFilter, teamSizeFilter])
+
+  useEffect(() => {
+    if (numId <= 0) return
+    void loadStats()
+  }, [numId])
 
   const getStatusBadge = (status: string) => {
     const statusKey = status.toUpperCase()
@@ -141,18 +213,15 @@ const CyctfRegistrations: FC = () => {
   const canReviewSelected = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(selectedStatus)
   const canApproveSelected = ['PENDING', 'REJECTED', 'CANCELLED'].includes(selectedStatus)
   const canRejectSelected = ['PENDING', 'APPROVED', 'CANCELLED'].includes(selectedStatus)
-  const selectedIndex = selectedReg ? registrations.findIndex((reg) => reg.id === selectedReg.id) : -1
-  const canGoPrevious = selectedIndex > 0
-  const canGoNext = selectedIndex >= 0 && selectedIndex < registrations.length - 1
-
-  const selectAdjacent = (offset: number) => {
-    const next = registrations[selectedIndex + offset]
-    if (!next) return
-    setSelectedReg(next)
-    setReviewNote(next.reviewNote || '')
-  }
-
-  const selectFromList = (list: RegistrationResponse[], index: number) => {
+  const pageCount = Math.max(1, Math.ceil(total / ITEM_COUNT_PER_PAGE))
+  const selectedIndex =
+    loadedPage === page && selectedReg ? registrations.findIndex((reg) => reg.id === selectedReg.id) : -1
+  const selectedPosition = selectedIndex >= 0 ? (page - 1) * ITEM_COUNT_PER_PAGE + selectedIndex + 1 : 0
+  const selectionReady = selectedIndex >= 0 && loadedPage === page && !loading
+  const canGoPrevious = selectionReady && (selectedIndex > 0 || (selectedIndex === 0 && page > 1))
+  const canGoNext = selectionReady && (selectedIndex < registrations.length - 1 || page < pageCount)
+  const actionDisabled = processingAction || !selectionReady
+  const selectFromList = (list: RegistrationResponse[], index: number, id?: number) => {
     if (list.length === 0) {
       setSelectedReg(null)
       setReviewNote('')
@@ -160,29 +229,88 @@ const CyctfRegistrations: FC = () => {
       return
     }
 
-    const next = list[Math.min(Math.max(index, 0), list.length - 1)]
+    const byId = id === undefined ? undefined : list.find((reg) => reg.id === id)
+    const next = byId ?? list[Math.min(Math.max(index, 0), list.length - 1)]
     setSelectedReg(next)
     setReviewNote(next.reviewNote || '')
   }
 
-  const reloadAndReselect = async (id: number, fallbackIndex: number) => {
-    const refreshed = await loadData()
-    const currentIndex = refreshed.findIndex((reg) => reg.id === id)
-    selectFromList(refreshed, currentIndex >= 0 ? currentIndex : fallbackIndex)
+  const selectAdjacent = (offset: number) => {
+    if (!selectedReg || selectedIndex < 0 || loadedPage !== page) return
+
+    const nextIndex = selectedIndex + offset
+    if (nextIndex >= 0 && nextIndex < registrations.length) {
+      selectFromList(registrations, nextIndex)
+      return
+    }
+
+    const nextPage = page + (offset < 0 ? -1 : 1)
+    if (nextPage < 1 || nextPage > pageCount) return
+
+    setPendingSelection({
+      page: nextPage,
+      index: offset < 0 ? ITEM_COUNT_PER_PAGE - 1 : 0,
+    })
+    requestSequence.current += 1
+    setLoadedPage(0)
+    setPage(nextPage)
+  }
+
+  const changePage = (nextPage: number) => {
+    const targetPage = Math.min(Math.max(nextPage, 1), Math.max(pageCount, 1))
+    if (targetPage === page) return
+
+    setPendingSelection(null)
+    requestSequence.current += 1
+    setLoadedPage(0)
+    if (opened) {
+      close()
+      setSelectedReg(null)
+      setReviewNote('')
+    }
+    setPage(targetPage)
+  }
+
+  useEffect(() => {
+    if (!pendingSelection || loadedPage !== pendingSelection.page) return
+
+    const selection = pendingSelection
+    setPendingSelection(null)
+    selectFromList(registrations, selection.index, selection.id)
+  }, [pendingSelection, loadedPage, registrations])
+
+  const refreshAfterAction = async (id: number, fallbackIndex: number) => {
+    const targetPage = page
+    const refreshed = await loadData(targetPage)
+    await loadStats()
+    if (!refreshed) return
+
+    const refreshedTotal = refreshed.total ?? refreshed.length
+    const refreshedPageCount = Math.max(1, Math.ceil(refreshedTotal / ITEM_COUNT_PER_PAGE))
+    if (targetPage > refreshedPageCount) {
+      setPendingSelection({ page: refreshedPageCount, index: ITEM_COUNT_PER_PAGE - 1 })
+      setLoadedPage(0)
+      setPage(refreshedPageCount)
+      return
+    }
+
+    setPendingSelection(null)
+    const currentIndex = refreshed.data.findIndex((reg) => reg.id === id)
+    selectFromList(refreshed.data, currentIndex >= 0 ? currentIndex : fallbackIndex)
   }
 
   const onReview = async (status: string) => {
-    if (!selectedReg) return
+    if (!selectedReg || !selectionReady) return
 
     const currentId = selectedReg.id!
-    const currentIndex = selectedIndex
+    const currentIndex = Math.max(selectedIndex, 0)
     setProcessingAction(true)
     try {
       await api.registration.registrationReviewRegistration(currentId, {
         status,
         reviewNote: reviewNote.trim() || undefined,
       })
-      await reloadAndReselect(currentId, currentIndex)
+      await refreshAfterAction(currentId, currentIndex)
       showNotification({
         color: 'teal',
         message: status === 'APPROVED' ? '审核通过' : '审核已拒绝',
@@ -210,16 +338,15 @@ const CyctfRegistrations: FC = () => {
   }
 
   const onCancelSelected = async () => {
-    if (!selectedReg) return
+    if (!selectedReg || !selectionReady) return
     const currentId = selectedReg.id!
-    const currentIndex = selectedIndex
+    const currentIndex = Math.max(selectedIndex, 0)
     if (!window.confirm(`确认取消 ${selectedReg.teamName || `报名 #${selectedReg.id}`}？`)) return
 
     setProcessingAction(true)
     try {
       await api.registration.registrationCancelRegistration(currentId)
-      const refreshed = await loadData()
-      selectFromList(refreshed, currentIndex)
+      await refreshAfterAction(currentId, Math.max(currentIndex, 0))
       showNotification({ color: 'teal', message: '报名已取消' })
     } catch (err) {
       showErrorMsg(err, t)
@@ -229,16 +356,15 @@ const CyctfRegistrations: FC = () => {
   }
 
   const onDeleteSelected = async () => {
-    if (!selectedReg) return
+    if (!selectedReg || !selectionReady) return
     const currentId = selectedReg.id!
-    const currentIndex = selectedIndex
+    const currentIndex = Math.max(selectedIndex, 0)
     if (!window.confirm(`确认删除 ${selectedReg.teamName || `报名 #${selectedReg.id}`}？此操作不可恢复。`)) return
 
     setProcessingAction(true)
     try {
       await api.registration.registrationDeleteRegistration(currentId)
-      const refreshed = await loadData()
-      selectFromList(refreshed, currentIndex)
+      await refreshAfterAction(currentId, Math.max(currentIndex, 0))
       showNotification({
         color: 'teal',
         message: '报名已删除',
@@ -272,7 +398,7 @@ const CyctfRegistrations: FC = () => {
           </Group>
         </Group>
 
-        <Group gap="sm">
+        <Group gap="sm" wrap="wrap">
           <MultiSelect
             placeholder="筛选状态"
             data={[
@@ -282,7 +408,10 @@ const CyctfRegistrations: FC = () => {
               { value: 'CANCELLED', label: '已取消' },
             ]}
             value={statusFilter}
-            onChange={setStatusFilter}
+            onChange={(value) => {
+              resetPagination()
+              setStatusFilter(value)
+            }}
             clearable
             style={{ minWidth: 200 }}
           />
@@ -293,9 +422,47 @@ const CyctfRegistrations: FC = () => {
               { value: 'notAllAccepted', label: '未全部接受' },
             ]}
             value={memberFilter}
-            onChange={setMemberFilter}
+            onChange={(value) => {
+              resetPagination()
+              setMemberFilter(value)
+            }}
             clearable
             style={{ minWidth: 200 }}
+          />
+          <Select
+            placeholder="筛选组别"
+            data={divisionOptions}
+            value={divisionFilter}
+            onChange={(value) => {
+              resetPagination()
+              setDivisionFilter(value)
+            }}
+            clearable
+            searchable
+            style={{ minWidth: 200 }}
+          />
+          <NumberInput
+            placeholder="队伍人数"
+            min={1}
+            step={1}
+            decimalScale={0}
+            value={teamSizeFilter}
+            onChange={(value) => {
+              if (value === '') {
+                resetPagination()
+                setTeamSizeFilter('')
+                return
+              }
+              const next = Number(value)
+              resetPagination()
+              setTeamSizeFilter(Number.isInteger(next) && next > 0 ? next : '')
+            }}
+            rightSection={
+              <Text size="xs" c="dimmed">
+                人
+              </Text>
+            }
+            style={{ minWidth: 140 }}
           />
         </Group>
 
@@ -305,6 +472,7 @@ const CyctfRegistrations: FC = () => {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>队伍</Table.Th>
+                  <Table.Th>人数</Table.Th>
                   <Table.Th>组别</Table.Th>
                   <Table.Th>状态</Table.Th>
                   <Table.Th>报名时间</Table.Th>
@@ -316,6 +484,7 @@ const CyctfRegistrations: FC = () => {
                 {registrations.map((reg) => (
                   <Table.Tr key={reg.id}>
                     <Table.Td>{reg.teamName}</Table.Td>
+                    <Table.Td>{reg.teamSize ?? '-'}</Table.Td>
                     <Table.Td>{reg.divisionName}</Table.Td>
                     <Table.Td>{getStatusBadge(reg.status ?? 'UNKNOWN')}</Table.Td>
                     <Table.Td>{dayjs(reg.createTime).format('YYYY-MM-DD HH:mm')}</Table.Td>
@@ -336,11 +505,25 @@ const CyctfRegistrations: FC = () => {
             </Table>
           </ScrollArea>
 
-          {registrations.length === 0 && (
+          {registrations.length === 0 && !loading && (
             <Text ta="center" c="dimmed" py="xl">
               暂无报名记录
             </Text>
           )}
+
+          <Group justify="space-between" align="center" mt="md" wrap="wrap">
+            <Text size="sm" c="dimmed">
+              共 {total} 条报名记录
+            </Text>
+            <Pagination
+              value={page}
+              onChange={changePage}
+              total={pageCount}
+              boundaries={2}
+              siblings={isMobile ? 0 : 1}
+              hideWithOnePage
+            />
+          </Group>
         </Paper>
       </Stack>
 
@@ -377,7 +560,7 @@ const CyctfRegistrations: FC = () => {
                 </Button>
               )}
               <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                {selectedReg ? selectedIndex + 1 : 0} / {registrations.length}
+                {selectedPosition} / {total}
               </Text>
               {isMobile ? (
                 <Tooltip label="下一个报名">
@@ -428,6 +611,9 @@ const CyctfRegistrations: FC = () => {
                     <strong>组别:</strong> {selectedReg.divisionName || '-'}
                   </Text>
                   <Text size="sm">
+                    <strong>队伍人数:</strong> {selectedReg.teamSize ?? '-'}
+                  </Text>
+                  <Text size="sm">
                     <strong>队长邮箱:</strong> {selectedReg.captainEmail || '-'}
                   </Text>
                 </Group>
@@ -475,6 +661,7 @@ const CyctfRegistrations: FC = () => {
                     color="red"
                     onClick={() => void onReview('REJECTED')}
                     loading={processingAction}
+                    disabled={actionDisabled}
                     leftSection={<Icon path={mdiClose} size={0.8} />}
                   >
                     拒绝
@@ -485,6 +672,7 @@ const CyctfRegistrations: FC = () => {
                     color="green"
                     onClick={() => void onReview('APPROVED')}
                     loading={processingAction}
+                    disabled={actionDisabled}
                     leftSection={<Icon path={mdiCheck} size={0.8} />}
                   >
                     通过
@@ -496,6 +684,7 @@ const CyctfRegistrations: FC = () => {
                     color="orange"
                     onClick={() => void onCancelSelected()}
                     loading={processingAction}
+                    disabled={actionDisabled}
                   >
                     取消报名
                   </Button>
@@ -505,6 +694,7 @@ const CyctfRegistrations: FC = () => {
                   color="red"
                   onClick={() => void onDeleteSelected()}
                   loading={processingAction}
+                  disabled={actionDisabled}
                   leftSection={<Icon path={mdiDeleteOutline} size={0.8} />}
                 >
                   删除

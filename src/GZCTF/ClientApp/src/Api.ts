@@ -1588,6 +1588,66 @@ export interface ScoreboardModel {
   challengeCount: number;
 }
 
+/** Public scoreboard containing team-level ranking data only */
+export interface PublicScoreboardModel {
+  /**
+   * Update time
+   * @format uint64
+   */
+  updateTimeUtc: number;
+  /** Team ranking summaries */
+  items: PublicScoreboardItem[];
+  /** Public division names */
+  divisions: PublicScoreboardDivision[];
+}
+
+export interface PublicScoreboardItem {
+  /**
+   * Team ID
+   * @format int32
+   */
+  id: number;
+  /** Team name */
+  name: string;
+  /**
+   * Division of participation
+   * @format int32
+   */
+  divisionId?: number | null;
+  /** Team avatar */
+  avatar?: string | null;
+  /**
+   * Total score
+   * @format int32
+   */
+  score: number;
+  /**
+   * Overall rank
+   * @format int32
+   */
+  rank: number;
+  /**
+   * Division rank
+   * @format int32
+   */
+  divisionRank?: number | null;
+  /**
+   * Number of solved challenges
+   * @format int32
+   */
+  solvedCount: number;
+}
+
+export interface PublicScoreboardDivision {
+  /**
+   * Division ID
+   * @format int32
+   */
+  id: number;
+  /** Division name */
+  name: string;
+}
+
 export interface TimeLineItem {
   /** @format int32 */
   divisionId?: number;
@@ -2141,6 +2201,8 @@ export interface ClientConfig {
    * @format int32
    */
   renewalWindow?: number;
+  /** Whether new users can register */
+  allowRegister?: boolean;
 }
 
 /** Client CAPTCHA information */
@@ -2338,10 +2400,28 @@ export interface RegistrationResponse {
   createTime?: number;
   /** @format uint64 */
   updateTime?: number;
+  /** 队伍人数（包含队长） */
+  teamSize?: number;
   /** 是否全部成员接受邀请 */
   allMembersAccepted?: boolean;
   /** 报名队员信息 */
   members?: RegistrationMemberResponse[];
+}
+
+/** List response */
+export interface ArrayResponseOfRegistrationResponse {
+  /** Data */
+  data: RegistrationResponse[];
+  /**
+   * Data length
+   * @format int32
+   */
+  length: number;
+  /**
+   * Total length
+   * @format int32
+   */
+  total?: number;
 }
 
 /** 报名请求 */
@@ -5865,43 +5945,43 @@ export class Api<
      * @request GET:/api/game/{id}/scoreboard
      */
     gameScoreboard: (id: number, params: RequestParams = {}) =>
-      this.request<ScoreboardModel, RequestResponse>({
+      this.request<PublicScoreboardModel, RequestResponse>({
         path: `/api/game/${id}/scoreboard`,
         method: "GET",
         format: "json",
         ...params,
       }),
     /**
-     * @description Retrieves the scoreboard data
-     *
-     * @tags Game
-     * @name GameScoreboard
-     * @summary Get the scoreboard
-     * @request GET:/api/game/{id}/scoreboard
-     */
+      * @description Retrieves the public team ranking summaries
+      *
+      * @tags Game
+      * @name GameScoreboard
+      * @summary Get the public scoreboard
+      * @request GET:/api/game/{id}/scoreboard
+      */
     useGameScoreboard: (
       id: number,
       options?: SWRConfiguration,
       doFetch: boolean = true,
     ) =>
-      useSWR<ScoreboardModel, RequestResponse>(
+      useSWR<PublicScoreboardModel, RequestResponse>(
         doFetch ? `/api/game/${id}/scoreboard` : null,
         options,
       ),
 
     /**
-     * @description Retrieves the scoreboard data
+     * @description Updates the public scoreboard cache entry
      *
      * @tags Game
      * @name GameScoreboard
-     * @summary Get the scoreboard
+     * @summary Update the public scoreboard
      * @request GET:/api/game/{id}/scoreboard
      */
     mutateGameScoreboard: (
       id: number,
-      data?: ScoreboardModel | Promise<ScoreboardModel>,
+      data?: PublicScoreboardModel | Promise<PublicScoreboardModel>,
       options?: MutatorOptions,
-    ) => mutate<ScoreboardModel>(`/api/game/${id}/scoreboard`, data, options),
+    ) => mutate<PublicScoreboardModel>(`/api/game/${id}/scoreboard`, data, options),
 
     /**
      * @description Downloads the game scoreboard; requires Monitor permission
@@ -7202,12 +7282,16 @@ export class Api<
       gameId: number,
       status?: string,
       allMembersAccepted?: boolean,
+      divisionId?: number,
+      teamSize?: number,
+      count?: number,
+      skip?: number,
       params: RequestParams = {},
     ) =>
-      this.request<RegistrationResponse[], RequestResponse>({
+      this.request<ArrayResponseOfRegistrationResponse, RequestResponse>({
         path: `/api/cyctf/registrations/games/${gameId}`,
         method: "GET",
-        query: { status, allMembersAccepted, ...params.query },
+        query: { status, allMembersAccepted, divisionId, teamSize, count, skip, ...params.query },
         format: "json",
         ...params,
       }),
@@ -7277,11 +7361,19 @@ export class Api<
      */
     useRegistrationGetGameRegistrations: (
       gameId: number,
+      query?: {
+        status?: string;
+        allMembersAccepted?: boolean;
+        divisionId?: number;
+        teamSize?: number;
+        count?: number;
+        skip?: number;
+      },
       options?: SWRConfiguration,
       doFetch: boolean = true,
     ) =>
-      useSWR<RegistrationResponse[], RequestResponse>(
-        doFetch ? `/api/cyctf/registrations/games/${gameId}` : null,
+      useSWR<ArrayResponseOfRegistrationResponse, RequestResponse>(
+        doFetch ? [`/api/cyctf/registrations/games/${gameId}`, query] : null,
         options,
       ),
 
@@ -7295,11 +7387,21 @@ export class Api<
      */
     mutateRegistrationGetGameRegistrations: (
       gameId: number,
-      data?: RegistrationResponse[] | Promise<RegistrationResponse[]>,
+      query?: {
+        status?: string;
+        allMembersAccepted?: boolean;
+        divisionId?: number;
+        teamSize?: number;
+        count?: number;
+        skip?: number;
+      },
+      data?:
+        | ArrayResponseOfRegistrationResponse
+        | Promise<ArrayResponseOfRegistrationResponse>,
       options?: MutatorOptions,
     ) =>
-      mutate<RegistrationResponse[]>(
-        `/api/cyctf/registrations/games/${gameId}`,
+      mutate<ArrayResponseOfRegistrationResponse>(
+        [`/api/cyctf/registrations/games/${gameId}`, query],
         data,
         options,
       ),

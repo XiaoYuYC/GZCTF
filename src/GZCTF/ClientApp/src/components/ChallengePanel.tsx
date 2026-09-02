@@ -25,6 +25,7 @@ import { Empty } from '@Components/Empty'
 import { GameChallengeModal } from '@Components/GameChallengeModal'
 import { WriteupSubmitModal } from '@Components/WriteupSubmitModal'
 import { useChallengeCategoryLabelMap, SubmissionTypeIconMap } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { useGame, useGameTeamInfo } from '@Hooks/useGame'
 import { ChallengeInfo, ChallengeCategory, SubmissionType } from '@Api'
 import classes from '@Styles/ChallengePanel.module.css'
@@ -62,6 +63,7 @@ export const ChallengePanel: FC = () => {
   const [writeupSubmitOpened, setWriteupSubmitOpened] = useState(false)
   const challengeCategoryLabelMap = useChallengeCategoryLabelMap()
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const challId = hash.slice(1).split('-')[0]
@@ -81,8 +83,13 @@ export const ChallengePanel: FC = () => {
   // skeleton for loading
   if (!challenges) {
     return (
-      <>
-        <Stack miw="10rem" maw="10rem">
+      <Group className={classes.panel} align="flex-start" wrap="nowrap" w="100%" miw={0}>
+        <Stack
+          miw={isMobile ? 0 : '10rem'}
+          maw={isMobile ? '100%' : '10rem'}
+          w={isMobile ? '100%' : '10rem'}
+          className={classes.controls}
+        >
           {Array(9)
             .fill(null)
             .map((_v, i) => (
@@ -93,17 +100,17 @@ export const ChallengePanel: FC = () => {
             ))}
         </Stack>
         <SimpleGrid
+          className={classes.grid}
           p="xs"
           pt={0}
           spacing="sm"
           pos="relative"
-          w="calc(100% - 9rem)"
-          cols={{ base: 3, w18: 4, w24: 6, w30: 8, w36: 10, w42: 12, w48: 14 }}
+          cols={{ base: 1, xs: 2, sm: 3, md: 4, lg: 5, xl: 6, w18: 8, w24: 10, w30: 12, w36: 14, w42: 16, w48: 18 }}
         >
           {Array(13)
             .fill(null)
             .map((_v, i) => (
-              <Card key={i} shadow="sm">
+              <Card key={i} shadow="sm" miw={0}>
                 <Stack gap="sm" pos="relative" style={{ zIndex: 99 }}>
                   <Skeleton height="1.5rem" width="70%" mt={4} />
                   <Divider />
@@ -124,13 +131,13 @@ export const ChallengePanel: FC = () => {
               </Card>
             ))}
         </SimpleGrid>
-      </>
+      </Group>
     )
   }
 
   if (allChallenges.length === 0) {
     return (
-      <Center h="calc(100vh - 100px)" w="100%">
+      <Center className={classes.panel} h="calc(100vh - 100px)" w="100%" miw={0}>
         <Empty
           bordered
           description={t('game.content.no_challenge')}
@@ -141,10 +148,9 @@ export const ChallengePanel: FC = () => {
       </Center>
     )
   }
-
   return (
-    <>
-      <Stack miw="10.5rem">
+    <Group className={classes.panel} align="flex-start" wrap="nowrap" w="100%" miw={0}>
+      <Stack miw={isMobile ? 0 : '10.5rem'} w={isMobile ? '100%' : '10.5rem'} className={classes.controls}>
         {game?.writeupRequired && (
           <>
             <Button
@@ -152,6 +158,7 @@ export const ChallengePanel: FC = () => {
               justify="space-between"
               leftSection={<Icon path={mdiFileUploadOutline} size={1} />}
               onClick={() => setWriteupSubmitOpened(true)}
+              fullWidth
             >
               {t('game.button.submit_writeup')}
             </Button>
@@ -159,18 +166,18 @@ export const ChallengePanel: FC = () => {
           </>
         )}
         <Switch
-          w="10.5rem"
+          w="100%"
           checked={hideSolved}
           onChange={(e) => setHideSolved(e.target.checked)}
           classNames={{ body: classes.switch }}
           label={
-            <Text fz="md" fw="bold" ta="right">
+            <Text fz="md" fw="bold" ta={isMobile ? 'left' : 'right'}>
               {t('game.button.hide_solved')}
             </Text>
           }
         />
         <Tabs
-          orientation="vertical"
+          orientation={isMobile ? 'horizontal' : 'vertical'}
           variant="pills"
           value={activeTab}
           onChange={(value) => setActiveTab(value as ChallengeCategory)}
@@ -182,7 +189,7 @@ export const ChallengePanel: FC = () => {
           }}
         >
           <Tabs.List>
-            <Tabs.Tab value={'All'} leftSection={<Icon path={mdiPuzzle} size={1} />}>
+            <Tabs.Tab value="All" leftSection={<Icon path={mdiPuzzle} size={1} />}>
               <Group justify="space-between" wrap="nowrap" gap={2}>
                 <Text fz="sm" fw="bold">
                   All
@@ -211,13 +218,16 @@ export const ChallengePanel: FC = () => {
         </Tabs>
       </Stack>
       <ScrollArea
-        h="calc(100vh - 6.67rem)"
+        className={classes.challengeArea}
+        h={isMobile ? 'auto' : 'calc(100vh - 6.67rem)'}
+        w="100%"
+        miw={0}
         pos="relative"
         offsetScrollbars
         scrollbarSize={4}
+        type={isMobile ? 'never' : 'auto'}
         classNames={{ root: classes.scrollArea }}
       >
-        {/* if rank is 0, and have no division, means scoreboard not ready yet */}
         {!teamInfo.rank?.divisionId && !teamInfo?.rank?.rank ? (
           <Center h="calc(100vh - 10rem)">
             <Stack gap={0}>
@@ -227,13 +237,28 @@ export const ChallengePanel: FC = () => {
           </Center>
         ) : currentChallenges && currentChallenges.length ? (
           <SimpleGrid
-            p="xs"
+            className={classes.grid}
+            p={isMobile ? 0 : 'xs'}
             w="100%"
+            miw={0}
             pt={0}
             spacing="sm"
-            cols={{ base: 3, w18: 4, w24: 6, w30: 8, w36: 10, w42: 12, w48: 14 }}
+            cols={{
+              base: 1,
+              xs: 2,
+              sm: 3,
+              md: 4,
+              lg: 5,
+              xl: 6,
+              w18: 8,
+              w24: 10,
+              w30: 12,
+              w36: 14,
+              w42: 16,
+              w48: 18,
+            }}
           >
-            {currentChallenges?.map((chal) => {
+            {currentChallenges.map((chal) => {
               const status = teamInfo?.rank?.solvedChallenges?.find((c) => c.id === chal.id)?.type
               const solved = status !== SubmissionType.Unaccepted && status !== undefined
 
@@ -246,7 +271,6 @@ export const ChallengePanel: FC = () => {
                   onClick={() => {
                     setChallenge(chal)
                     setDetailOpened(true)
-                    // update hash after modal opened, so don't trigger useEffect
                     window.location.hash = `#${chal.id}-${encodeURIComponent(chal.title?.replace(/ /g, '-') ?? '')}`
                   }}
                   solved={solved}
@@ -295,6 +319,6 @@ export const ChallengePanel: FC = () => {
           challengeId={challenge.id}
         />
       )}
-    </>
+    </Group>
   )
 }

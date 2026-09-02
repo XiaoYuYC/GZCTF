@@ -60,14 +60,14 @@ const ChallengeDeadlineNotice: FC<ChallengeDeadlineNoticeProps> = ({ deadline, o
   const countdownText = `${Math.floor(duration.asHours())}:${duration.format('mm:ss')}`
 
   return (
-    <Group gap="xs" justify="space-between" wrap="nowrap">
+    <Group gap="xs" justify="space-between" wrap="wrap" align="center">
       <Text fw="bold" size="sm">
         {t('challenge.content.deadline.remaining')}&nbsp;
         <Text span ff="monospace" fw="bold" size="sm" c="brand">
           {countdownText}
         </Text>
       </Text>
-      <Text fw="bold" size="xs" c="dimmed">
+      <Text fw="bold" size="xs" c="dimmed" ta="right">
         {t('challenge.content.deadline.label')}&nbsp;
         <Text span ff="monospace" c="dimmed" fw="bold" size="xs">
           {formattedDeadline}
@@ -140,14 +140,14 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
 
   const title = (
     <Stack gap="xs">
-      <Group wrap="nowrap" w="100%" justify="space-between" gap="sm">
-        <Group wrap="nowrap" gap="sm" w="calc(100% - 6.75rem)">
+      <Group wrap="wrap" w="100%" justify="space-between" gap="xs" align="center">
+        <Group wrap="nowrap" gap="sm" miw={0} maw="100%" style={{ flex: '1 1 10rem' }}>
           {cateData && <Icon path={cateData.icon} size={1.2} color={theme.colors[cateData.color][5]} />}
-          <Title order={4} lineClamp={1}>
+          <Title order={4} lineClamp={2} style={{ overflowWrap: 'anywhere' }}>
             {challenge?.title ?? ''}
           </Title>
         </Group>
-        <Text miw="6rem" fw="bold" ff="monospace" ta="right">
+        <Text miw="5rem" fw="bold" ff="monospace" ta="right">
           {challenge?.score ?? 0} pts
         </Text>
       </Group>
@@ -188,7 +188,7 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
   const local = link && link.startsWith('/assets')
 
   const attachment = withAttachment && (
-    <Group gap="xs" justify="flex-start" align="center" wrap="nowrap">
+    <Group gap="xs" justify="flex-start" align="center" wrap="wrap" w="100%">
       <Text fw="bold" size="sm">
         {t('challenge.button.download.attachment')}
       </Text>
@@ -278,15 +278,16 @@ export const ChallengeModal: FC<ChallengeModalProps> = (props) => {
           }
         }}
       >
-        <Group justify="space-between" gap="sm" align="flex-end">
+        <Group justify="space-between" gap="sm" align="stretch" wrap={isMobile ? 'wrap' : 'nowrap'}>
           <TextInput
             placeholder={placeholder}
             value={inputValue}
             disabled={inputDisabled}
             onChange={setFlag}
             classNames={{ root: misc.flexGrow, input: misc.ffmono }}
+            w={isMobile ? '100%' : undefined}
           />
-          <Button miw="6rem" type="submit" disabled={inputDisabled}>
+          <Button miw="6rem" type="submit" disabled={inputDisabled} fullWidth={isMobile}>
             {t('challenge.button.submit_flag')}
           </Button>
         </Group>

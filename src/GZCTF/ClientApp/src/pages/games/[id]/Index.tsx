@@ -113,6 +113,9 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
   const { teams } = useTeams()
   const [cyctfEnabled, setCyctfEnabled] = useState<boolean | null>(null)
   const [cyctfExtension, setCyctfExtension] = useState<GameExtensionResponse | null>(null)
+
+  // CYCTF 赛事与报名页共用 GameExtension.currentTeams 作为报名数量。
+  const registeredTeamCount = cyctfExtension?.currentTeams ?? game?.teamCount ?? 0
   const [sponsors, setSponsors] = useState<SponsorResponse[]>([])
   const [awards, setAwards] = useState<AwardResponse[]>([])
 
@@ -253,11 +256,11 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
   const ControlButtons = (
     <>
       {cyctfEnabled === true ? (
-        <Group gap="xs">
-          <Button component={Link} to={`/games/${numId}/registration`}>
+        <Group gap="xs" wrap="wrap" w={isMobile ? '100%' : undefined}>
+          <Button component={Link} to={`/games/${numId}/registration`} fullWidth={isMobile}>
             报名
           </Button>
-          <Button variant="light" component={Link} to={`/games/${numId}/registrationquery`}>
+          <Button variant="light" component={Link} to={`/games/${numId}/registrationquery`} fullWidth={isMobile}>
             报名查询
           </Button>
         </Group>
@@ -271,17 +274,18 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
         </Button>
       )}
       {started && (
-        <Button component={Link} to={`/games/${numId}/scoreboard`}>
+        <Button component={Link} to={`/games/${numId}/scoreboard`} fullWidth={isMobile}>
           {t('game.button.scoreboard')}
         </Button>
       )}
+
       {cyctfEnabled !== true && (status === ParticipationStatus.Pending || status === ParticipationStatus.Rejected) && (
-        <Button color="red" variant="outline" onClick={onLeave}>
+        <Button color="red" variant="outline" onClick={onLeave} fullWidth={isMobile}>
           {t('game.button.leave')}
         </Button>
       )}
-      {status === ParticipationStatus.Accepted && started && !isMobile && (!finished || game?.practiceMode) && (
-        <Button component={Link} to={`/games/${numId}/challenges`}>
+      {status === ParticipationStatus.Accepted && started && (!finished || game?.practiceMode) && (
+        <Button component={Link} to={`/games/${numId}/challenges`} fullWidth={isMobile}>
           {t('game.button.challenges')}
         </Button>
       )}
@@ -306,7 +310,7 @@ export const GameDetail: FC<GameDetailProps> = ({ gameId }) => {
             <Stack gap={2}>
               <Title className={classes.title}>{game?.title}</Title>
               <Text size="sm" c="dimmed">
-                <Trans i18nKey="game.content.joined_status" values={{ count: game?.teamCount ?? 0 }} />
+                <Trans i18nKey="game.content.joined_status" values={{ count: registeredTeamCount }} />
               </Text>
             </Stack>
             {cyctfExtension && (

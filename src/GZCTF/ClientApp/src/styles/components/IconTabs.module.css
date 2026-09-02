@@ -1,3 +1,29 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.aside {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+
+  :global(.mantine-Title-root) {
+    min-width: 0;
+    max-width: 24rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .default {
   flex: 0 0 auto;
   white-space: nowrap;
@@ -51,11 +77,6 @@
   justify-content: center;
   line-height: 1;
   height: 100%;
-
-  @mixin smaller-than $mantine-breakpoint-xs {
-    flex-direction: column;
-    gap: var(--mantine-spacing-md);
-  }
 }
 
 .label {
@@ -90,9 +111,44 @@
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: thin;
+}
 
-  @mixin smaller-than $mantine-breakpoint-xs {
+@mixin smaller-than $mantine-breakpoint-sm {
+  .root {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--mantine-spacing-xs);
+  }
+
+  .aside {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+    max-width: 100%;
+    gap: var(--mantine-spacing-xs);
+
+    :global(.mantine-Title-root) {
+      max-width: none;
+      font-size: var(--mantine-font-size-xl);
+    }
+  }
+
+  .aside :global(.mantine-Card-root) {
+    min-width: 0;
+  }
+
+  .panes {
     width: 100%;
     justify-content: flex-start;
+  }
+}
+
+@mixin smaller-than $mantine-breakpoint-xs {
+  .inner {
+    gap: var(--mantine-spacing-xs);
+  }
+
+  .icon:not(:only-child) {
+    margin-right: var(--mantine-spacing-xs);
   }
 }

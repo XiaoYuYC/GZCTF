@@ -75,24 +75,24 @@ export const TeamRank: FC<CardProps> = (props) => {
   return (
     <Card {...props} shadow="sm">
       <Stack gap="xs">
-        <Group gap="sm" wrap="nowrap">
+        <Group gap="sm" wrap="nowrap" miw={0}>
           <Avatar alt="avatar" size={50} radius="md" src={rank?.avatar}>
             {rank?.name?.slice(0, 1) ?? 'T'}
           </Avatar>
-          <Skeleton visible={!rank}>
-            <Stack gap={2} align="flex-start">
-              <Title order={3} lineClamp={1}>
+          <Skeleton visible={!rank} miw={0} style={{ flex: 1 }}>
+            <Stack gap={2} align="flex-start" miw={0}>
+              <Title order={3} lineClamp={1} style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}>
                 {rank?.name ?? 'Team'}
               </Title>
               {division && (
-                <Badge size="xs" variant="outline">
+                <Badge size="xs" variant="outline" maw="100%" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {division}
                 </Badge>
               )}
             </Stack>
           </Skeleton>
         </Group>
-        <Group grow ta="center">
+        <Group grow ta="center" wrap="wrap">
           {item(t('game.label.score_table.rank_total'), rank?.rank || '-')}
           {division && item(t('game.label.score_table.rank_division'), rank?.divisionRank)}
           {item(t('game.label.score_table.score'), rank?.score)}

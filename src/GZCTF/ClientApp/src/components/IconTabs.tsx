@@ -76,6 +76,7 @@ export const IconTabs: FC<IconTabsProps> = (props) => {
 
   return (
     <Group
+      className={classes.root}
       gap={0}
       justify="space-between"
       w="100%"
@@ -85,7 +86,7 @@ export const IconTabs: FC<IconTabsProps> = (props) => {
         maxWidth: '100%',
       }}
     >
-      {aside}
+      {aside && <Box className={classes.aside}>{aside}</Box>}
       {withIcon && <LogoHeader className={classes.hidable} />}
       <Group className={classes.panes} {...others}>
         {panes}

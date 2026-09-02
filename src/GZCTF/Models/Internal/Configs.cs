@@ -38,6 +38,7 @@ public class AccountPolicy
     /// <summary>
     /// Allow user registration
     /// </summary>
+    [CacheFlush(CacheKey.ClientConfig)]
     public bool AllowRegister { get; set; } = true;
 
     /// <summary>
@@ -440,17 +441,24 @@ public partial class ClientConfig
     [JsonIgnore]
     public DateTimeOffset UpdateTimeUtc { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>
+    /// Whether new users can register
+    /// </summary>
+    public bool AllowRegister { get; set; } = true;
+
     public static ClientConfig FromServiceProvider(IServiceProvider serviceProvider) =>
         FromConfigs(
+            serviceProvider.GetRequiredService<IOptionsSnapshot<AccountPolicy>>().Value,
             serviceProvider.GetRequiredService<IOptionsSnapshot<GlobalConfig>>().Value,
             serviceProvider.GetRequiredService<IOptionsSnapshot<ContainerPolicy>>().Value,
             serviceProvider.GetRequiredService<IOptionsSnapshot<ContainerProvider>>().Value,
             serviceProvider.GetRequiredService<IOptionsSnapshot<ManagedConfig>>().Value);
 
-    private static ClientConfig FromConfigs(GlobalConfig globalConfig, ContainerPolicy containerPolicy,
-        ContainerProvider containerProvider, ManagedConfig managedConfig) =>
+    private static ClientConfig FromConfigs(AccountPolicy accountPolicy, GlobalConfig globalConfig,
+        ContainerPolicy containerPolicy, ContainerProvider containerProvider, ManagedConfig managedConfig) =>
         new()
         {
+            AllowRegister = accountPolicy.AllowRegister,
             Title = globalConfig.Title,
             Slogan = globalConfig.Slogan,
             NamingStyle = globalConfig.NamingStyle,

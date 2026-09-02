@@ -27,7 +27,12 @@ public class RegistrationResponse
     public List<RegistrationMemberResponse> Members { get; set; } = [];
 
     /// <summary>
-    /// 队伍所有成员是否已全部接受邀请（基于 Participation.Members 和 Registration.MemberInvitations）
+    /// 队伍人数，包含队长。
+    /// </summary>
+    public int TeamSize { get; set; }
+
+    /// <summary>
+    /// 队伍所有成员是否已全部接受邀请。队长提交报名即视为已接受，队员状态来自 Registration.MemberInvitations。
     /// </summary>
     public bool? AllMembersAccepted { get; set; }
 
@@ -50,6 +55,7 @@ public class RegistrationResponse
         CreateTime = entity.CreateTime,
         UpdateTime = entity.UpdateTime,
         Members = ParseMembers(entity.MemberInvitations),
+        TeamSize = ComputeTeamSize(entity),
         AllMembersAccepted = ComputeAllMembersAccepted(entity)
     };
 
@@ -75,38 +81,64 @@ public class RegistrationResponse
         }
     }
 
+    private static int ComputeTeamSize(Registration entity)
+    {
+        // 已创建队伍时以实际成员关系为准，兼容旧的登录报名记录。
+        if (entity.Team is not null)
+            return Math.Max(1, entity.Team.Members.Count);
+
+        // 待审核的无登录报名尚未创建队伍；未加载队伍关系的旧记录至少包含队长。
+        if (!entity.TeamId.HasValue && string.IsNullOrWhiteSpace(entity.CaptainEmail))
+            return 0;
+
+        if (string.IsNullOrWhiteSpace(entity.MemberInvitations))
+            return 1;
+
+        try
+        {
+            var invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(entity.MemberInvitations,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return 1 + (invitations?.Count ?? 0);
+        }
+        catch (JsonException)
+        {
+            return 1;
+        }
+    }
+
     private static bool? ComputeAllMembersAccepted(Registration entity)
     {
-        // 仅对已通过的报名才计算成员接受状态
-        if (entity.Status != "APPROVED" || entity.TeamId is null)
+        // 队长提交报名即视为已接受；待审核和已通过的报名参与筛选。
+        var status = entity.Status.ToUpperInvariant();
+        if (status is not ("PENDING" or "APPROVED"))
+            return null;
+        if (!entity.TeamId.HasValue && string.IsNullOrWhiteSpace(entity.CaptainEmail))
             return null;
 
-        // 解析 MemberInvitations JSON
-        if (!string.IsNullOrWhiteSpace(entity.MemberInvitations))
-        {
-            try
-            {
-                var invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(entity.MemberInvitations);
-                if (invitations != null && invitations.Count > 0)
-                {
-                    return invitations.All(inv => inv.Accepted == true);
-                }
-            }
-            catch
-            {
-                // JSON 解析失败，返回 null
-                return null;
-            }
-        }
+        // 没有队员邀请时，队长是唯一成员，结果为全部接受。
+        if (string.IsNullOrWhiteSpace(entity.MemberInvitations))
+            return true;
 
-        // 没有 MemberInvitations 或为空，视为全部接受（队长单人或旧报名流程）
-        return true;
+        try
+        {
+            var invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(entity.MemberInvitations,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return invitations?.All(inv =>
+                string.Equals(inv.Status, InvitationStatus.Accepted, StringComparison.OrdinalIgnoreCase) ||
+                // 兼容早期保存的 Accepted 布尔字段。
+                inv.Accepted == true) ?? true;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private class MemberInvitation
     {
         public string? Email { get; set; }
         public string? Token { get; set; }
+        public string? Status { get; set; }
         public bool? Accepted { get; set; }
         public bool? Rejected { get; set; }
         public DateTimeOffset? AcceptedAt { get; set; }

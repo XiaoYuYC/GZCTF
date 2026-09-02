@@ -39,6 +39,7 @@ export const useConfig = () => {
     key: 'client-config',
     defaultValue: {
       title: 'GZ',
+      allowRegister: true,
       slogan: 'Hack for fun not for profit',
       namingStyle: 'Original',
       customWebsiteTitle: null,

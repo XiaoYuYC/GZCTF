@@ -18,6 +18,7 @@ import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HandleWsrxError, useWsrx } from '@Components/WsrxProvider'
 import { getProxyUrl as getProxyEntry } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { useConfig } from '@Hooks/useConfig'
 import { ClientFlagContext, ContainerPortMappingType } from '@Api'
 import classes from '@Styles/InstanceEntry.module.css'
@@ -84,6 +85,7 @@ export const InstanceEntry: FC<InstanceEntryProps> = (props) => {
 
   const { config } = useConfig()
   const clipBoard = useClipboard()
+  const isMobile = useIsMobile()
 
   const [forceShowOriginal, setForceShowOriginal] = useState(false)
   const [withContainer, setWithContainer] = useState(!!context.instanceEntry)
@@ -182,8 +184,8 @@ export const InstanceEntry: FC<InstanceEntryProps> = (props) => {
         {t('challenge.content.instance.test.no_container')}
       </Text>
     ) : (
-      <Group justify="space-between" wrap="nowrap">
-        <Stack align="left" gap={0}>
+      <Group justify="space-between" align="stretch" wrap={isMobile ? 'wrap' : 'nowrap'}>
+        <Stack align="left" gap={0} miw={0} style={{ flex: '1 1 12rem' }}>
           <Text size="sm" fw="bold">
             {t('challenge.content.instance.no_container.message')}
           </Text>
@@ -194,7 +196,7 @@ export const InstanceEntry: FC<InstanceEntryProps> = (props) => {
           </Text>
         </Stack>
 
-        <Button onClick={onCreate} disabled={disabled} loading={disabled}>
+        <Button onClick={onCreate} disabled={disabled} loading={disabled} fullWidth={isMobile}>
           {t('challenge.button.instance.create')}
         </Button>
       </Group>
@@ -271,11 +273,11 @@ export const InstanceEntry: FC<InstanceEntryProps> = (props) => {
             </Tooltip>
           </Group>
         }
-        rightSectionWidth={isWsrxUsable ? '6.5rem' : '5rem'}
+        rightSectionWidth={isWsrxUsable ? (isMobile ? '7rem' : '6.5rem') : isMobile ? '5.5rem' : '5rem'}
       />
       {!isPreview && (
-        <Group justify="space-between" wrap="nowrap">
-          <Stack align="left" gap={0}>
+        <Group justify="space-between" align="stretch" wrap={isMobile ? 'wrap' : 'nowrap'}>
+          <Stack align="left" gap={0} miw={0} style={{ flex: '1 1 12rem' }}>
             <Text size="sm" fw={600}>
               {t('challenge.content.instance.actions.count_down')}
               <Countdown
@@ -289,11 +291,11 @@ export const InstanceEntry: FC<InstanceEntryProps> = (props) => {
               {t('challenge.content.instance.actions.note', { min: config.renewalWindow })}
             </Text>
           </Stack>
-          <Group justify="right" wrap="nowrap" gap="xs">
-            <Button color="orange" onClick={onExtend} disabled={!canExtend || disabled}>
+          <Group justify="right" wrap={isMobile ? 'wrap' : 'nowrap'} gap="xs" w={isMobile ? '100%' : undefined}>
+            <Button color="orange" onClick={onExtend} disabled={!canExtend || disabled} fullWidth={isMobile}>
               {t('challenge.button.instance.extend')}
             </Button>
-            <Button color="red" onClick={onDestroy} disabled={disabled}>
+            <Button color="red" onClick={onDestroy} disabled={disabled} fullWidth={isMobile}>
               {t('challenge.button.instance.destroy')}
             </Button>
           </Group>

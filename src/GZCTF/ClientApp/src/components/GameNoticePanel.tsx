@@ -11,6 +11,7 @@ import { Empty } from '@Components/Empty'
 import { InlineMarkdown } from '@Components/MarkdownRenderer'
 import { useLanguage } from '@Utils/I18n'
 import { NoticTypeIconMap } from '@Utils/Shared'
+import { useIsMobile } from '@Utils/ThemeOverride'
 import { OnceSWRConfig } from '@Hooks/useConfig'
 import api, { GameNotice, NoticeType } from '@Api'
 import misc from '@Styles/Misc.module.css'
@@ -92,6 +93,7 @@ export const GameNoticePanel: FC = () => {
   const { t } = useTranslation()
   const { locale } = useLanguage()
   const theme = useMantineTheme()
+  const isMobile = useIsMobile()
 
   const { data: notices } = api.game.useGameNotices(numId, {}, OnceSWRConfig)
 
@@ -171,7 +173,12 @@ export const GameNoticePanel: FC = () => {
           ]}
         />
         {filteredNotices.length ? (
-          <ScrollArea offsetScrollbars scrollbarSize={0} h={PANEL_HEIGHT}>
+          <ScrollArea
+            offsetScrollbars
+            scrollbarSize={isMobile ? 4 : 0}
+            h={isMobile ? 'min(28rem, 70vh)' : PANEL_HEIGHT}
+            type="auto"
+          >
             <List size="sm" spacing={3} classNames={{ itemWrapper: misc.alignNormal }}>
               {filteredNotices.map((notice) => (
                 <List.Item key={notice.id} icon={<Icon {...iconMap.get(notice.type)!} />}>
@@ -192,7 +199,7 @@ export const GameNoticePanel: FC = () => {
             </List>
           </ScrollArea>
         ) : (
-          <Center h={PANEL_HEIGHT}>
+          <Center h={isMobile ? 'min(28rem, 70vh)' : PANEL_HEIGHT}>
             <Empty description={t('game.content.no_notice')} />
           </Center>
         )}

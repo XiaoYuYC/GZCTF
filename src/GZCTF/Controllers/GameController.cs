@@ -336,7 +336,7 @@ public class GameController(
     /// <response code="200">Successfully retrieved game information</response>
     /// <response code="400">Game not found</response>
     [HttpGet("{id:int}/Scoreboard")]
-    [ProducesResponseType(typeof(ScoreboardModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PublicScoreboardModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Scoreboard([FromRoute] int id, CancellationToken token)
     {
@@ -344,11 +344,11 @@ public class GameController(
         string eTag;
         if (scoreboard is not null)
         {
-            eTag = GameETag(id, scoreboard.UpdateTimeUtc);
+            eTag = PublicScoreboardETag(id, scoreboard.UpdateTimeUtc);
             if (ContextHelper.IsNotModified(Request, Response, eTag, scoreboard.UpdateTimeUtc))
                 return StatusCode(StatusCodes.Status304NotModified);
 
-            return Ok(scoreboard);
+            return Ok(PublicScoreboardModel.FromScoreboard(scoreboard));
         }
 
         var game = await gameRepository.GetGameById(id, token);
@@ -362,10 +362,10 @@ public class GameController(
 
         scoreboard = await gameRepository.GetScoreboard(game, token);
         var lastModified = scoreboard.UpdateTimeUtc;
-        eTag = GameETag(game.Id, lastModified);
+        eTag = PublicScoreboardETag(game.Id, lastModified);
         ContextHelper.SetCacheHeaders(Response, eTag, lastModified);
 
-        return Ok(scoreboard);
+        return Ok(PublicScoreboardModel.FromScoreboard(scoreboard));
     }
 
     /// <summary>
@@ -1409,6 +1409,9 @@ public class GameController(
 
         return res;
     }
+
+    private static string PublicScoreboardETag(int gameId, DateTimeOffset lastModified) =>
+        $"\"scoreboard-public-v1-{gameId}-{lastModified.ToUnixTimeSeconds():X}\"";
 
     private static string GameETag(int gameId, DateTimeOffset lastModified) =>
         $"\"{gameId}-{lastModified.ToUnixTimeSeconds():X}\"";
