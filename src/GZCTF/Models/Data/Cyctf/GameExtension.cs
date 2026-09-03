@@ -56,6 +56,18 @@ public class GameExtension
     public string? Status { get; set; }
 
     /// <summary>
+    /// 赛事通知 QQ 群号。
+    /// </summary>
+    [MaxLength(64)]
+    public string? QqGroupNumber { get; set; }
+
+    /// <summary>
+    /// 赛事通知 QQ 群链接。
+    /// </summary>
+    [MaxLength(512)]
+    public string? QqGroupLink { get; set; }
+
+    /// <summary>
     /// 软删除标记
     /// </summary>
     [Required]

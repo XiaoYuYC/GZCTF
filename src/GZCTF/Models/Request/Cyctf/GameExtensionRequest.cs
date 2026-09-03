@@ -34,4 +34,14 @@ public class GameExtensionRequest
     /// 比赛状态
     /// </summary>
     public string? Status { get; set; }
+
+    /// <summary>
+    /// 赛事通知 QQ 群号。
+    /// </summary>
+    public string? QqGroupNumber { get; set; }
+
+    /// <summary>
+    /// 赛事通知 QQ 群链接。
+    /// </summary>
+    public string? QqGroupLink { get; set; }
 }

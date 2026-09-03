@@ -58,6 +58,13 @@ public class GameExtensionController(
         if (game is null)
             return NotFound(new RequestResponse("比赛不存在", StatusCodes.Status404NotFound));
 
+        var qqGroupNumber = request.QqGroupNumber?.Trim();
+        var qqGroupLink = request.QqGroupLink?.Trim();
+        if (!string.IsNullOrEmpty(qqGroupLink) &&
+            (!Uri.TryCreate(qqGroupLink, UriKind.Absolute, out var qqGroupUri) ||
+             (qqGroupUri.Scheme != Uri.UriSchemeHttp && qqGroupUri.Scheme != Uri.UriSchemeHttps)))
+            return BadRequest(new RequestResponse("QQ群链接必须使用 http:// 或 https://"));
+
         var extension = new Models.Data.Cyctf.GameExtension
         {
             GameId = gameId,
@@ -66,7 +73,9 @@ public class GameExtensionController(
             MaxTeams = request.MaxTeams,
             ShowRegistrationCount = request.ShowRegistrationCount,
             ShowEventTime = request.ShowEventTime,
-            Status = request.Status
+            Status = request.Status,
+            QqGroupNumber = string.IsNullOrEmpty(qqGroupNumber) ? null : qqGroupNumber,
+            QqGroupLink = string.IsNullOrEmpty(qqGroupLink) ? null : qqGroupLink
         };
 
         var result = await gameExtensionRepository.CreateOrUpdateGameExtension(extension, token);

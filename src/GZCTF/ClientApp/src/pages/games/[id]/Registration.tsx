@@ -26,6 +26,7 @@ import { FC, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useCaptchaRef } from '@Components/Captcha'
+import { RegistrationGroupNotice } from '@Components/RegistrationGroupNotice'
 import { VerificationCaptchaModal } from '@Components/VerificationCaptchaModal'
 import { showErrorMsg } from '@Utils/Shared'
 import { useGame } from '@Hooks/useGame'
@@ -837,6 +838,14 @@ const GameRegistration: FC = () => {
           <Alert icon={<Icon path={mdiAlertCircle} size={1} />} color="red">
             报名人数已满
           </Alert>
+        )}
+
+        {registration && (
+          <RegistrationGroupNotice
+            groupNumber={extension.qqGroupNumber}
+            groupLink={extension.qqGroupLink}
+            status={registration.status}
+          />
         )}
 
         {registration && !canReplaceRegistration ? (

@@ -21,6 +21,7 @@ import dayjs from 'dayjs'
 import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
+import { RegistrationGroupNotice } from '@Components/RegistrationGroupNotice'
 import {
   InfoRow,
   parseRegistrationFields,
@@ -32,7 +33,7 @@ import { WithNavBar } from '@Components/WithNavbar'
 import { showErrorMsg, tryGetErrorMsg } from '@Utils/Shared'
 import { useGame } from '@Hooks/useGame'
 import { usePageTitle } from '@Hooks/usePageTitle'
-import api, { RegistrationQueryResponse } from '@Api'
+import api, { GameExtensionResponse, RegistrationQueryResponse } from '@Api'
 
 const statusInfo = (status?: string) => {
   switch (status?.toUpperCase()) {
@@ -66,12 +67,30 @@ const RegistrationQuery: FC = () => {
   const [refreshing, setRefreshing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [result, setResult] = useState<RegistrationQueryResponse | null>(null)
+  const [extension, setExtension] = useState<GameExtensionResponse | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [divisionFields, setDivisionFields] = useState<RegistrationField[]>([])
 
   const storageKey = `cyctf:registration-query:${gameId}`
   usePageTitle(result?.gameTitle || game?.title || '报名查询')
+
+  useEffect(() => {
+    if (gameId <= 0) return
+    let active = true
+    api.gameExtension
+      .gameExtensionGetGameExtension(gameId)
+      .then((response) => {
+        if (active) setExtension(response.data)
+      })
+      .catch(() => {
+        if (active) setExtension(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [gameId])
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -314,6 +333,11 @@ const RegistrationQuery: FC = () => {
 
     return (
       <Stack gap="lg">
+        <RegistrationGroupNotice
+          groupNumber={extension?.qqGroupNumber}
+          groupLink={extension?.qqGroupLink}
+          status={result.status}
+        />
         <Paper withBorder p={{ base: 'md', sm: 'lg' }}>
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start" gap="md" wrap="wrap">

@@ -82,6 +82,123 @@ public class RegistrationResponseTests
     }
 
     [Fact]
+    public void AllMembersAccepted_SingleCaptainRegistration_IsTrue()
+    {
+        var registration = new Registration
+        {
+            Id = 4,
+            GameId = 9,
+            DivisionId = 4,
+            CaptainEmail = "captain@example.com",
+            Status = "PENDING",
+            TeamId = null,
+            MemberInvitations = null
+        };
+
+        var response = RegistrationResponse.FromEntity(registration);
+
+        Assert.True(response.AllMembersAccepted);
+        Assert.Equal(1, response.TeamSize);
+    }
+
+    [Fact]
+    public void TeamSize_IncludesCaptainAndInvitedMembers()
+    {
+        var registration = new Registration
+        {
+            Id = 7,
+            GameId = 9,
+            DivisionId = 4,
+            CaptainEmail = "captain@example.com",
+            Status = "PENDING",
+            MemberInvitations = JsonSerializer.Serialize(new[]
+            {
+                new MemberInvitation { Email = "member1@example.com", Status = InvitationStatus.Pending },
+                new MemberInvitation { Email = "member2@example.com", Status = InvitationStatus.Accepted }
+            })
+        };
+
+        var response = RegistrationResponse.FromEntity(registration);
+
+        Assert.Equal(3, response.TeamSize);
+    }
+
+    [Fact]
+    public void TeamSize_UsesActualRelatedTeamMembers()
+    {
+        var captain = new UserInfo { Id = Guid.NewGuid() };
+        var member = new UserInfo { Id = Guid.NewGuid() };
+        var team = new Team { Id = 8, Captain = captain };
+        team.Members.Add(captain);
+        team.Members.Add(member);
+        var registration = new Registration
+        {
+            Id = 8,
+            GameId = 9,
+            DivisionId = 4,
+            TeamId = team.Id,
+            Status = "APPROVED",
+            Team = team
+        };
+
+        var response = RegistrationResponse.FromEntity(registration);
+
+        Assert.Equal(2, response.TeamSize);
+    }
+
+    [Fact]
+    public void AllMembersAccepted_IncludesCaptainAndAcceptedInvitations()
+    {
+        var registration = new Registration
+        {
+            Id = 5,
+            GameId = 9,
+            DivisionId = 4,
+            CaptainEmail = "captain@example.com",
+            Status = "PENDING",
+            MemberInvitations = JsonSerializer.Serialize(new[]
+            {
+                new MemberInvitation
+                {
+                    Email = "member@example.com",
+                    Status = InvitationStatus.Accepted,
+                    SentAt = DateTimeOffset.UtcNow
+                }
+            })
+        };
+
+        var response = RegistrationResponse.FromEntity(registration);
+
+        Assert.True(response.AllMembersAccepted);
+    }
+
+    [Fact]
+    public void AllMembersAccepted_WithPendingInvitation_IsFalse()
+    {
+        var registration = new Registration
+        {
+            Id = 6,
+            GameId = 9,
+            DivisionId = 4,
+            CaptainEmail = "captain@example.com",
+            Status = "PENDING",
+            MemberInvitations = JsonSerializer.Serialize(new[]
+            {
+                new MemberInvitation
+                {
+                    Email = "member@example.com",
+                    Status = InvitationStatus.Pending,
+                    SentAt = DateTimeOffset.UtcNow
+                }
+            })
+        };
+
+        var response = RegistrationResponse.FromEntity(registration);
+
+        Assert.False(response.AllMembersAccepted);
+    }
+
+    [Fact]
     public void QueryResponse_PreservesCompleteRegistrationDetails()
     {
         var registration = new Registration

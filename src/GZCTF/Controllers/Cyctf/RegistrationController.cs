@@ -532,6 +532,8 @@ public class RegistrationController(
         [FromQuery] bool? allMembersAccepted,
         [FromQuery] int? divisionId,
         [FromQuery] int? teamSize,
+        [FromQuery] string? search,
+        [FromQuery] string? searchMode,
         [FromQuery][Range(1, 100)] int count = 30,
         [FromQuery] int skip = 0,
         CancellationToken token = default)
@@ -541,6 +543,19 @@ public class RegistrationController(
 
         if (await gameRepository.GetGameById(gameId, token) is null)
             return NotFound(new RequestResponse("比赛不存在", StatusCodes.Status404NotFound));
+
+        Func<string?, bool>? matcher = null;
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            try
+            {
+                matcher = RegistrationSearchMatcher.CreateMatcher(search.Trim(), searchMode);
+            }
+            catch (ArgumentException exception)
+            {
+                return BadRequest(new RequestResponse(exception.Message, StatusCodes.Status400BadRequest));
+            }
+        }
 
         var registrations = await registrationRepository.GetRegistrationsByGameId(gameId, status, token);
 
@@ -558,6 +573,20 @@ public class RegistrationController(
             registrations = registrations
                 .Where(r => RegistrationResponse.FromEntity(r).AllMembersAccepted == allMembersAccepted.Value)
                 .ToList();
+        }
+
+        if (matcher is not null)
+        {
+            try
+            {
+                registrations = registrations.Where(registration =>
+                    RegistrationSearchMatcher.MatchesRegistration(registration, matcher)).ToList();
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return BadRequest(new RequestResponse("正则搜索执行超时，请缩短表达式或改用通配符模式。",
+                    StatusCodes.Status400BadRequest));
+            }
         }
 
         var total = registrations.Count;

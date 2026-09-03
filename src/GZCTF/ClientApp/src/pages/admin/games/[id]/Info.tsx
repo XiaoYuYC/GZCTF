@@ -65,6 +65,8 @@ const GameInfoEdit: FC = () => {
   const [maxTeams, setMaxTeams] = useState<number | undefined>(undefined)
   const [showRegistrationCount, setShowRegistrationCount] = useState(true)
   const [showEventTime, setShowEventTime] = useState(true)
+  const [qqGroupNumber, setQqGroupNumber] = useInputState('')
+  const [qqGroupLink, setQqGroupLink] = useInputState('')
   const [cyctfStatus, setCyctfStatus] = useInputState('')
 
   const modals = useModals()
@@ -86,6 +88,8 @@ const GameInfoEdit: FC = () => {
       setMaxTeams(extension.maxTeams ?? undefined)
       setShowRegistrationCount(extension.showRegistrationCount ?? true)
       setShowEventTime(extension.showEventTime ?? true)
+      setQqGroupNumber(extension.qqGroupNumber ?? '')
+      setQqGroupLink(extension.qqGroupLink ?? '')
       setCyctfStatus(extension.status ?? '')
     } catch (err: any) {
       if (err.response?.status !== 404) showErrorMsg(err, t)
@@ -187,6 +191,8 @@ const GameInfoEdit: FC = () => {
           maxTeams: maxTeams ?? undefined,
           showRegistrationCount,
           showEventTime,
+          qqGroupNumber: qqGroupNumber.trim() || undefined,
+          qqGroupLink: qqGroupLink.trim() || undefined,
           status: cyctfStatus.trim() || undefined,
         })
         setCyctfExtension(extensionResponse.data)
@@ -454,6 +460,24 @@ const GameInfoEdit: FC = () => {
             当前已报名队伍数：{cyctfExtension.currentTeams ?? 0}
           </Text>
         )}
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <TextInput
+            label="赛事通知 QQ 群号"
+            description="报名成功后会显示给参赛者"
+            placeholder="例如：123456789"
+            value={qqGroupNumber}
+            disabled={disabled || !cyctfEnabled}
+            onChange={setQqGroupNumber}
+          />
+          <TextInput
+            label="QQ 群链接（可选）"
+            description="填写 http:// 或 https:// 开头的加群链接"
+            placeholder="https://qm.qq.com/..."
+            value={qqGroupLink}
+            disabled={disabled || !cyctfEnabled}
+            onChange={setQqGroupLink}
+          />
+        </SimpleGrid>
         <TextInput
           label="状态文本"
           description="自定义 CYCTF 报名页面的状态显示文本"

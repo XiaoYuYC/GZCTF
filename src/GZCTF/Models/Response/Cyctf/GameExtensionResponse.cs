@@ -15,6 +15,8 @@ public class GameExtensionResponse
     public bool ShowEventTime { get; set; }
     public int CurrentTeams { get; set; }
     public string? Status { get; set; }
+    public string? QqGroupNumber { get; set; }
+    public string? QqGroupLink { get; set; }
     public DateTimeOffset CreateTime { get; set; }
     public DateTimeOffset UpdateTime { get; set; }
 
@@ -28,6 +30,8 @@ public class GameExtensionResponse
         ShowEventTime = entity.ShowEventTime,
         CurrentTeams = entity.CurrentTeams,
         Status = entity.Status,
+        QqGroupNumber = entity.QqGroupNumber,
+        QqGroupLink = entity.QqGroupLink,
         CreateTime = entity.CreateTime,
         UpdateTime = entity.UpdateTime
     };

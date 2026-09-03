@@ -7,6 +7,8 @@ import {
   NumberInput,
   Pagination,
   Select,
+  SegmentedControl,
+  TextInput,
   Tooltip,
   MultiSelect,
   Paper,
@@ -17,7 +19,7 @@ import {
   Textarea,
   Title,
 } from '@mantine/core'
-import { useDisclosure, useInputState } from '@mantine/hooks'
+import { useDebouncedValue, useDisclosure, useInputState } from '@mantine/hooks'
 import { showNotification } from '@mantine/notifications'
 import {
   mdiArrowLeftBold,
@@ -27,6 +29,7 @@ import {
   mdiDeleteOutline,
   mdiDownload,
   mdiInformationOutline,
+  mdiMagnify,
 } from '@mdi/js'
 import { Icon } from '@mdi/react'
 import dayjs from 'dayjs'
@@ -74,6 +77,9 @@ const CyctfRegistrations: FC = () => {
   const [memberFilter, setMemberFilter] = useState<string[]>([])
   const [divisionFilter, setDivisionFilter] = useState<string | null>(null)
   const [teamSizeFilter, setTeamSizeFilter] = useState<number | ''>('')
+  const [search, setSearch] = useInputState('')
+  const [searchMode, setSearchMode] = useState('text')
+  const [debouncedSearch] = useDebouncedValue(search, 400)
   const [divisionFields, setDivisionFields] = useState<RegistrationField[]>([])
 
   const resetPagination = () => {
@@ -137,6 +143,7 @@ const CyctfRegistrations: FC = () => {
           : undefined
       const divisionIdParam = divisionFilter ? Number(divisionFilter) : undefined
       const teamSizeParam = teamSizeFilter === '' ? undefined : teamSizeFilter
+      const searchParam = debouncedSearch.trim() || undefined
 
       const response = await api.registration.registrationGetGameRegistrations(
         numId,
@@ -144,6 +151,8 @@ const CyctfRegistrations: FC = () => {
         allMembersAcceptedParam,
         divisionIdParam,
         teamSizeParam,
+        searchParam,
+        searchMode,
         ITEM_COUNT_PER_PAGE,
         (targetPage - 1) * ITEM_COUNT_PER_PAGE
       )
@@ -173,7 +182,7 @@ const CyctfRegistrations: FC = () => {
 
   useEffect(() => {
     if (numId > 0) void loadData(page)
-  }, [numId, page, statusFilter, memberFilter, divisionFilter, teamSizeFilter])
+  }, [numId, page, statusFilter, memberFilter, divisionFilter, teamSizeFilter, debouncedSearch, searchMode])
 
   useEffect(() => {
     if (numId <= 0) return
@@ -398,7 +407,32 @@ const CyctfRegistrations: FC = () => {
           </Group>
         </Group>
 
-        <Group gap="sm" wrap="wrap">
+        <Group gap="sm" wrap="wrap" align="flex-end">
+          <TextInput
+            label="搜索报名信息"
+            placeholder="队伍名、邮箱、表单字段、成员信息..."
+            leftSection={<Icon path={mdiMagnify} size={0.9} />}
+            maxLength={256}
+            value={search}
+            onChange={(event) => {
+              resetPagination()
+              setSearch(event)
+            }}
+            style={{ minWidth: isMobile ? '100%' : 320, flex: isMobile ? '1 1 100%' : '1 1 320px' }}
+          />
+          <SegmentedControl
+            aria-label="搜索模式"
+            value={searchMode}
+            onChange={(value) => {
+              resetPagination()
+              setSearchMode(value)
+            }}
+            data={[
+              { value: 'text', label: '文本' },
+              { value: 'wildcard', label: '通配符' },
+              { value: 'regex', label: '正则' },
+            ]}
+          />
           <MultiSelect
             placeholder="筛选状态"
             data={[

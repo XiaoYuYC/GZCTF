@@ -2344,6 +2344,10 @@ export interface GameExtensionResponse {
   /** @format int32 */
   currentTeams?: number;
   status?: string | null;
+  /** 赛事通知 QQ 群号 */
+  qqGroupNumber?: string | null;
+  /** 赛事通知 QQ 群链接 */
+  qqGroupLink?: string | null;
   /** @format uint64 */
   createTime?: number;
   /** @format uint64 */
@@ -2373,6 +2377,10 @@ export interface GameExtensionRequest {
   showEventTime?: boolean;
   /** 比赛状态 */
   status?: string | null;
+  /** 赛事通知 QQ 群号 */
+  qqGroupNumber?: string | null;
+  /** 赛事通知 QQ 群链接 */
+  qqGroupLink?: string | null;
 }
 
 /** 报名响应 */
@@ -7284,6 +7292,8 @@ export class Api<
       allMembersAccepted?: boolean,
       divisionId?: number,
       teamSize?: number,
+      search?: string,
+      searchMode?: string,
       count?: number,
       skip?: number,
       params: RequestParams = {},
@@ -7291,7 +7301,17 @@ export class Api<
       this.request<ArrayResponseOfRegistrationResponse, RequestResponse>({
         path: `/api/cyctf/registrations/games/${gameId}`,
         method: "GET",
-        query: { status, allMembersAccepted, divisionId, teamSize, count, skip, ...params.query },
+        query: {
+          status,
+          allMembersAccepted,
+          divisionId,
+          teamSize,
+          search,
+          searchMode,
+          count,
+          skip,
+          ...params.query,
+        },
         format: "json",
         ...params,
       }),
