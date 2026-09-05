@@ -28,6 +28,7 @@ import {
   mdiClose,
   mdiDeleteOutline,
   mdiDownload,
+  mdiEmailOutline,
   mdiInformationOutline,
   mdiMagnify,
 } from '@mdi/js'
@@ -315,10 +316,7 @@ const CyctfRegistrations: FC = () => {
     const currentIndex = Math.max(selectedIndex, 0)
     setProcessingAction(true)
     try {
-      await api.registration.registrationReviewRegistration(currentId, {
-        status,
-        reviewNote: reviewNote.trim() || undefined,
-      })
+      await api.registration.registrationReviewRegistration(currentId, { status })
       await refreshAfterAction(currentId, currentIndex)
       showNotification({
         color: 'teal',
@@ -332,15 +330,83 @@ const CyctfRegistrations: FC = () => {
     }
   }
 
+  const onSaveReviewNote = async () => {
+    if (!selectedReg || !selectionReady) return
+
+    const currentId = selectedReg.id!
+    const currentIndex = Math.max(selectedIndex, 0)
+    setProcessingAction(true)
+    try {
+      await api.registration.registrationUpdateRegistrationReviewNote(currentId, {
+        reviewNote: reviewNote.trim() || null,
+      })
+      await refreshAfterAction(currentId, currentIndex)
+      showNotification({ color: 'teal', message: '审核备注已保存', icon: <Icon path={mdiCheck} size={1} /> })
+    } catch (err) {
+      showErrorMsg(err, t)
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const onResendCaptainEmail = async () => {
+    if (!selectedReg || !selectionReady || !selectedReg.captainEmail) return
+    setProcessingAction(true)
+    try {
+      const response = await api.registration.registrationResendCaptainEmail(selectedReg.id!)
+      await refreshAfterAction(selectedReg.id!, Math.max(selectedIndex, 0))
+      showNotification({
+        color: 'teal',
+        message: response.data.title || '队长邮件已重新发送',
+        icon: <Icon path={mdiEmailOutline} size={1} />,
+      })
+    } catch (err) {
+      showErrorMsg(err, t)
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const onResendMemberEmail = async (memberIndex: number) => {
+    if (!selectedReg || !selectionReady) return
+    setProcessingAction(true)
+    try {
+      const response = await api.registration.registrationResendMemberInvitationEmail(selectedReg.id!, memberIndex)
+      await refreshAfterAction(selectedReg.id!, Math.max(selectedIndex, 0))
+      showNotification({
+        color: 'teal',
+        message: response.data.title || `队员 ${memberIndex} 邀请邮件已重新发送`,
+        icon: <Icon path={mdiEmailOutline} size={1} />,
+      })
+    } catch (err) {
+      showErrorMsg(err, t)
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileName
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
   const onExport = async () => {
     try {
       const response = await api.registration.registrationExport({ query: { gameId: numId } })
-      const url = URL.createObjectURL(response.data)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = `cyctf-registrations-${numId}.csv`
-      anchor.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(response.data, `cyctf-registrations-${numId}.csv`)
+    } catch (err) {
+      showErrorMsg(err, t)
+    }
+  }
+
+  const onExportExcel = async () => {
+    try {
+      const response = await api.registration.registrationExportExcel({ query: { gameId: numId } })
+      downloadBlob(response.data, `cyctf-registrations-by-division-${numId}.zip`)
     } catch (err) {
       showErrorMsg(err, t)
     }
@@ -401,9 +467,19 @@ const CyctfRegistrations: FC = () => {
             <Text size="sm">
               已拒绝: <strong>{stats.REJECTED || 0}</strong>
             </Text>
-            <Button size="xs" variant="light" onClick={onExport} leftSection={<Icon path={mdiDownload} size={0.8} />}>
-              导出 CSV
-            </Button>
+            <Group gap="xs">
+              <Button size="xs" variant="light" onClick={onExport} leftSection={<Icon path={mdiDownload} size={0.8} />}>
+                导出 CSV
+              </Button>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={onExportExcel}
+                leftSection={<Icon path={mdiDownload} size={0.8} />}
+              >
+                导出 Excel（按组别）
+              </Button>
+            </Group>
           </Group>
         </Group>
 
@@ -647,9 +723,20 @@ const CyctfRegistrations: FC = () => {
                   <Text size="sm">
                     <strong>队伍人数:</strong> {selectedReg.teamSize ?? '-'}
                   </Text>
-                  <Text size="sm">
-                    <strong>队长邮箱:</strong> {selectedReg.captainEmail || '-'}
-                  </Text>
+                  <Group gap="xs" align="center">
+                    <Text size="sm">
+                      <strong>队长邮箱:</strong> {selectedReg.captainEmail || '-'}
+                    </Text>
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      onClick={() => void onResendCaptainEmail()}
+                      loading={processingAction}
+                      disabled={actionDisabled || !selectedReg.captainEmail}
+                    >
+                      重新发信
+                    </Button>
+                  </Group>
                 </Group>
                 <Text size="sm">
                   <strong>队伍简介:</strong> {selectedReg.teamBio || '-'}
@@ -664,6 +751,8 @@ const CyctfRegistrations: FC = () => {
               formData={selectedReg.formData}
               fields={divisionFields}
               members={selectedReg.members}
+              onResendMemberEmail={(memberIndex) => void onResendMemberEmail(memberIndex)}
+              disabled={actionDisabled}
             />
 
             {selectedReg.reviewNote && (
@@ -678,14 +767,28 @@ const CyctfRegistrations: FC = () => {
             )}
 
             {canReviewSelected && (
-              <Textarea
-                label="审核备注"
-                value={reviewNote}
-                onChange={setReviewNote}
-                minRows={3}
-                placeholder="输入审核意见..."
-                disabled={processingAction}
-              />
+              <>
+                <Textarea
+                  label="审核备注"
+                  value={reviewNote}
+                  onChange={setReviewNote}
+                  minRows={3}
+                  placeholder="输入审核意见..."
+                  disabled={processingAction}
+                />
+                <Group justify="flex-end">
+                  <Button
+                    size="sm"
+                    variant="light"
+                    onClick={() => void onSaveReviewNote()}
+                    loading={processingAction}
+                    disabled={actionDisabled}
+                    leftSection={<Icon path={mdiCheck} size={0.8} />}
+                  >
+                    保存备注
+                  </Button>
+                </Group>
+              </>
             )}
 
             <Group justify="space-between" gap="sm" wrap="wrap">

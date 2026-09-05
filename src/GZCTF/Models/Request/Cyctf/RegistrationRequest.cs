@@ -67,6 +67,17 @@ public class RegistrationReviewRequest
     public string Status { get; set; } = string.Empty;
 
     /// <summary>
+    /// 兼容旧客户端保留；备注请通过独立接口保存。
+    /// </summary>
+    public string? ReviewNote { get; set; }
+}
+
+/// <summary>
+/// 独立更新报名审核备注请求
+/// </summary>
+public class RegistrationReviewNoteRequest
+{
+    /// <summary>
     /// 审核备注
     /// </summary>
     public string? ReviewNote { get; set; }

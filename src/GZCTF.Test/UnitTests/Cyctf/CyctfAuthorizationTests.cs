@@ -24,8 +24,12 @@ public class CyctfAuthorizationTests
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.GetGameRegistrations))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.GetRegistration))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ReviewRegistration))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.UpdateRegistrationReviewNote))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendCaptainEmail))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendMemberInvitationEmail))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.CancelRegistration))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.Export))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.ExportExcel))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.GetRegistrationStats))]
     public void AdminEndpoint_UsesNativeRequireAdminAttribute(Type controllerType, string methodName)
     {

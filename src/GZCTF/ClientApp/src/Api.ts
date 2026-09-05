@@ -2472,7 +2472,12 @@ export interface MemberInfoRequest {
 export interface RegistrationReviewRequest {
   /** 审核状态（APPROVED, REJECTED） */
   status?: string;
-  /** 审核备注 */
+  /** 兼容旧客户端保留 */
+  reviewNote?: string | null;
+}
+
+/** 独立更新报名审核备注请求 */
+export interface RegistrationReviewNoteRequest {
   reviewNote?: string | null;
 }
 
@@ -7593,12 +7598,71 @@ export class Api<
       }),
 
     /**
+     * 独立保存报名审核备注（管理员）
+     * @request PUT:/api/cyctf/registrations/{id}/review-note
+     */
+    registrationUpdateRegistrationReviewNote: (
+      id: number,
+      data: RegistrationReviewNoteRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/review-note`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * 重新发送队长报名邮件（管理员）
+     * @request POST:/api/cyctf/registrations/{id}/resend-captain-email
+     */
+    registrationResendCaptainEmail: (id: number, params: RequestParams = {}) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/resend-captain-email`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * 重新发送队员邀请邮件（管理员）
+     * @request POST:/api/cyctf/registrations/{id}/members/{memberIndex}/resend-email
+     */
+    registrationResendMemberInvitationEmail: (
+      id: number,
+      memberIndex: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/members/${memberIndex}/resend-email`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * 导出报名 CSV
      * @request GET:/api/cyctf/registrations/export
      */
     registrationExport: (params: RequestParams = {}) =>
       this.request<Blob, RequestResponse>({
         path: `/api/cyctf/registrations/export`,
+        method: "GET",
+        query: params.query,
+        format: "blob",
+        ...params,
+      }),
+
+    /**
+     * 按组别导出报名 Excel（每个组别一个工作簿，ZIP）
+     * @request GET:/api/cyctf/registrations/export-excel
+     */
+    registrationExportExcel: (params: RequestParams = {}) =>
+      this.request<Blob, RequestResponse>({
+        path: `/api/cyctf/registrations/export-excel`,
         method: "GET",
         query: params.query,
         format: "blob",

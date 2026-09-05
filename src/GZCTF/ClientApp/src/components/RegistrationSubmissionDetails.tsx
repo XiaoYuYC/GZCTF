@@ -1,4 +1,4 @@
-import { Badge, Box, Divider, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core'
+import { Badge, Box, Button, Divider, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import { FC, ReactNode } from 'react'
 import type { RegistrationMemberResponse } from '@Api'
@@ -154,7 +154,9 @@ export const RegistrationSubmissionDetails: FC<{
   formData?: string | null
   fields: RegistrationField[]
   members?: RegistrationMemberResponse[] | null
-}> = ({ formData, fields, members = [] }) => {
+  onResendMemberEmail?: (memberIndex: number) => void
+  disabled?: boolean
+}> = ({ formData, fields, members = [], onResendMemberEmail, disabled = false }) => {
   const formValues = parseJsonRecord(formData)
   const rawFormData = isMeaningfulText(formData) && !formValues ? formData : null
   const knownFormFields = new Set(fields.map((field) => field.name))
@@ -218,9 +220,21 @@ export const RegistrationSubmissionDetails: FC<{
                     <Stack gap="md">
                       <Group justify="space-between" align="center" gap="sm" wrap="wrap">
                         <Text fw={600}>队员 {index + 1}</Text>
-                        <Badge color={memberStatusInfo(member.status).color} variant="light">
-                          {memberStatusInfo(member.status).label}
-                        </Badge>
+                        <Group gap="xs">
+                          <Badge color={memberStatusInfo(member.status).color} variant="light">
+                            {memberStatusInfo(member.status).label}
+                          </Badge>
+                          {onResendMemberEmail && (
+                            <Button
+                              size="compact-xs"
+                              variant="light"
+                              onClick={() => onResendMemberEmail(index + 1)}
+                              disabled={disabled || !member.email}
+                            >
+                              重新发信
+                            </Button>
+                          )}
+                        </Group>
                       </Group>
                       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <InfoRow label="邮箱" value={member.email || '-'} />

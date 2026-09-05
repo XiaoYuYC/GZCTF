@@ -487,7 +487,7 @@ public class RegistrationController(
         try
         {
             await ReleaseRegistrationResources(registration, token);
-            registration = await registrationRepository.UpdateRegistrationStatus(registration, "CANCELLED", null, null,
+            registration = await registrationRepository.UpdateRegistrationStatus(registration, "CANCELLED", registration.ReviewNote, null,
                 token) ?? registration;
             await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
             await transaction.CommitAsync(token);
@@ -655,7 +655,7 @@ public class RegistrationController(
             {
                 await ReleaseRegistrationResources(registration, token);
                 registration = await registrationRepository.UpdateRegistrationStatus(registration, request.Status,
-                    request.ReviewNote, reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
+                    registration.ReviewNote, reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
                 await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
                 await rejectionTransaction.CommitAsync(token);
             }
@@ -666,7 +666,7 @@ public class RegistrationController(
                 return Conflict(new RequestResponse(exception.Message, StatusCodes.Status409Conflict));
             }
 
-            QueueNoAuthRejectionNotification(game, registration.CaptainEmail!, division, request.ReviewNote);
+            QueueNoAuthRejectionNotification(game, registration.CaptainEmail!, division, registration.ReviewNote);
             return Ok(RegistrationResponse.FromEntity(registration));
         }
 
@@ -815,7 +815,7 @@ public class RegistrationController(
                 registration.TeamId = newTeam.Id;
                 registration.ProvisionedTeamId = newTeam.Id;
                 registration.ProvisionedUserIds = provisionedUserIds;
-                registration = await registrationRepository.UpdateRegistrationStatus(registration, request.Status, request.ReviewNote,
+                registration = await registrationRepository.UpdateRegistrationStatus(registration, request.Status, registration.ReviewNote,
                     reviewerId == Guid.Empty ? null : reviewerId, token) ?? registration;
 
                 // 7. 根据审核前后的状态同步报名名额。
@@ -874,13 +874,120 @@ public class RegistrationController(
                 ParticipationStatus.Rejected, token);
         }
 
-        registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, request.ReviewNote,
+        registration = await registrationRepository.UpdateRegistrationStatus(id, request.Status, registration.ReviewNote,
             reviewerId2 == Guid.Empty ? null : reviewerId2, token) ?? registration;
         await UpdateRegistrationTeamCount(registration.GameId, previousStatus, request.Status, token);
 
         await transaction.CommitAsync(token);
         QueueRegistrationNotification(game, team, division, registration.Status, registration.ReviewNote);
         return Ok(RegistrationResponse.FromEntity(registration));
+    }
+
+    [HttpPut("{id:int}/review-note")]
+    [RequireAdmin]
+    public async Task<IActionResult> UpdateRegistrationReviewNote(int id,
+        [FromBody] RegistrationReviewNoteRequest request, CancellationToken token)
+    {
+        var registration = await registrationRepository.GetRegistrationById(id, token);
+        if (registration is null)
+            return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+
+        var reviewerClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(reviewerClaim, out var reviewerId);
+        registration.ReviewNote = string.IsNullOrWhiteSpace(request.ReviewNote)
+            ? null
+            : request.ReviewNote.Trim();
+        registration.ReviewedBy = reviewerId == Guid.Empty ? null : reviewerId;
+        registration.ReviewedAt = DateTimeOffset.UtcNow;
+        registration.UpdateTime = registration.ReviewedAt.Value;
+        await registrationRepository.UpdateRegistration(registration, token);
+
+        return Ok(RegistrationResponse.FromEntity(registration));
+    }
+
+    [HttpPost("{id:int}/resend-captain-email")]
+    [RequireAdmin]
+    public async Task<IActionResult> ResendCaptainEmail(int id, CancellationToken token)
+    {
+        var registration = await registrationRepository.GetRegistrationById(id, token);
+        if (registration is null)
+            return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+
+        var game = await gameRepository.GetGameById(registration.GameId, token);
+        var division = await db.Divisions.FirstOrDefaultAsync(d => d.Id == registration.DivisionId &&
+                                                                     d.GameId == registration.GameId, token);
+        if (game is null || division is null)
+            return NotFound(new RequestResponse("报名关联数据不存在"));
+
+        if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
+        {
+            var teamName = registration.TeamName ?? registration.Team?.Name ?? "未命名队伍";
+            if (registration.Status.Equals("REJECTED", StringComparison.OrdinalIgnoreCase))
+                QueueNoAuthRejectionNotification(game, registration.CaptainEmail, division, registration.ReviewNote);
+            else if (registration.Status.Equals("CANCELLED", StringComparison.OrdinalIgnoreCase))
+                QueueNoAuthCancellationNotification(game, registration.CaptainEmail, division);
+            else
+                QueueNoAuthRegistrationNotification(game, teamName, division, registration.CaptainEmail, registration.Status);
+        }
+        else
+        {
+            var team = registration.TeamId is { } teamId
+                ? await teamRepository.GetTeamById(teamId, token)
+                : registration.Team;
+            if (team is null)
+                return BadRequest(new RequestResponse("报名缺少队长信息"));
+            if (team.Members.FirstOrDefault(member => member.Id == team.CaptainId)?.Email is not { } captainEmail ||
+                string.IsNullOrWhiteSpace(captainEmail))
+                return BadRequest(new RequestResponse("队长邮箱为空"));
+
+            QueueRegistrationNotification(game, team, division, registration.Status, registration.ReviewNote);
+        }
+
+        return Ok(new RequestResponse("队长邮件已重新发送", StatusCodes.Status200OK));
+    }
+
+    [HttpPost("{id:int}/members/{memberIndex:int}/resend-email")]
+    [RequireAdmin]
+    public async Task<IActionResult> ResendMemberInvitationEmail(int id, int memberIndex, CancellationToken token)
+    {
+        if (memberIndex < 1)
+            return BadRequest(new RequestResponse("队员序号无效"));
+
+        var registration = await registrationRepository.GetRegistrationById(id, token);
+        if (registration is null)
+            return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+        if (string.IsNullOrWhiteSpace(registration.MemberInvitations))
+            return NotFound(new RequestResponse("队员邀请不存在"));
+
+        List<MemberInvitation> invitations;
+        try
+        {
+            invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(registration.MemberInvitations) ?? [];
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new RequestResponse("队员邀请数据格式错误"));
+        }
+
+        if (memberIndex > invitations.Count)
+            return NotFound(new RequestResponse("队员邀请不存在"));
+
+        var invitation = invitations[memberIndex - 1];
+        if (string.IsNullOrWhiteSpace(invitation.Email) || string.IsNullOrWhiteSpace(invitation.Token))
+            return BadRequest(new RequestResponse("队员邀请缺少邮箱或令牌"));
+
+        var game = await gameRepository.GetGameById(registration.GameId, token);
+        if (game is null)
+            return NotFound(new RequestResponse("比赛不存在"));
+
+        QueueMemberInvitationEmail(game, registration.TeamName ?? registration.Team?.Name ?? "未命名队伍",
+            invitation.Email, invitation.Token);
+        invitation.SentAt = DateTimeOffset.UtcNow;
+        registration.MemberInvitations = JsonSerializer.Serialize(invitations);
+        registration.UpdateTime = invitation.SentAt;
+        await registrationRepository.UpdateRegistration(registration, token);
+
+        return Ok(new RequestResponse("队员邀请邮件已重新发送", StatusCodes.Status200OK));
     }
 
     [HttpPost("{id:int}/cancel")]
@@ -907,7 +1014,7 @@ public class RegistrationController(
         try
         {
             await ReleaseRegistrationResources(registration, token);
-            registration = await registrationRepository.UpdateRegistrationStatus(registration, "CANCELLED", null, null,
+            registration = await registrationRepository.UpdateRegistrationStatus(registration, "CANCELLED", registration.ReviewNote, null,
                 token) ?? registration;
             await UpdateRegistrationTeamCount(registration.GameId, previousStatus, "CANCELLED", token);
             await transaction.CommitAsync(token);
@@ -939,6 +1046,15 @@ public class RegistrationController(
     {
         var bytes = await registrationRepository.ExportCsv(gameId, status, token);
         return File(bytes, "text/csv; charset=utf-8", "cyctf-registrations.csv");
+    }
+
+    [HttpGet("export-excel")]
+    [RequireAdmin]
+    public async Task<IActionResult> ExportExcel([FromQuery] int? gameId, [FromQuery] string? status,
+        CancellationToken token)
+    {
+        var bytes = await registrationRepository.ExportExcelZip(gameId, status, token);
+        return File(bytes, "application/zip", "cyctf-registrations-by-division.zip");
     }
 
     [HttpGet("games/{gameId:int}/stats")]
@@ -991,15 +1107,18 @@ public class RegistrationController(
         var safeGame = WebUtility.HtmlEncode(game.Title);
         var safeTeam = WebUtility.HtmlEncode(teamName);
         var safeDivision = WebUtility.HtmlEncode(division.Name);
+        var queryUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/games/{game.Id}/registrationquery";
+        var safeQueryUrl = WebUtility.HtmlEncode(queryUrl);
+        var queryLink = $"<a href=\"{safeQueryUrl}\" style=\"color: #1976d2; text-decoration: none;\">点击此处查询报名状态</a>";
 
         var (title, information) = status switch
         {
             "APPROVED" => ("CYCTF 报名审核通过",
                 $"队伍「{safeTeam}」已通过赛事「{safeGame}」的组别「{safeDivision}」报名审核。<br/><br/>" +
-                "您可以进入报名查询页面查看最新报名状态。"),
+                $"{queryLink}"),
             _ => ("CYCTF 报名已提交",
                 $"队伍「{safeTeam}」已提交赛事「{safeGame}」的组别「{safeDivision}」报名，当前状态为待审核。<br/><br/>" +
-                "您可以进入报名查询页面查看最新报名状态。")
+                $"{queryLink}")
         };
 
         try

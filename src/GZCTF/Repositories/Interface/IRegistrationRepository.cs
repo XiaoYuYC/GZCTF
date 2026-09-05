@@ -43,6 +43,11 @@ public interface IRegistrationRepository : IRepository
 
     Task<byte[]> ExportCsv(int? gameId, string? status, CancellationToken token = default);
 
+    /// <summary>
+    /// 按组别分别导出报名信息，每个组别生成一个 Excel 工作簿并打包为 ZIP。
+    /// </summary>
+    Task<byte[]> ExportExcelZip(int? gameId, string? status, CancellationToken token = default);
+
     Task<bool> DeleteRegistration(int id, CancellationToken token = default);
 
     /// <summary>
