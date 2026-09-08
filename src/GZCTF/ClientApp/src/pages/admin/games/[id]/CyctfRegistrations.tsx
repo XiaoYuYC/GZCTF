@@ -394,9 +394,23 @@ const CyctfRegistrations: FC = () => {
     URL.revokeObjectURL(url)
   }
 
+  const getExportQuery = () => ({
+    gameId: numId,
+    status: statusFilter.length > 0 ? statusFilter.join(',') : undefined,
+    allMembersAccepted: memberFilter.includes('allAccepted')
+      ? true
+      : memberFilter.includes('notAllAccepted')
+        ? false
+        : undefined,
+    divisionId: divisionFilter ? Number(divisionFilter) : undefined,
+    teamSize: teamSizeFilter === '' ? undefined : teamSizeFilter,
+    search: debouncedSearch.trim() || undefined,
+    searchMode,
+  })
+
   const onExport = async () => {
     try {
-      const response = await api.registration.registrationExport({ query: { gameId: numId } })
+      const response = await api.registration.registrationExport({ query: getExportQuery() })
       downloadBlob(response.data, `cyctf-registrations-${numId}.csv`)
     } catch (err) {
       showErrorMsg(err, t)
@@ -405,7 +419,7 @@ const CyctfRegistrations: FC = () => {
 
   const onExportExcel = async () => {
     try {
-      const response = await api.registration.registrationExportExcel({ query: { gameId: numId } })
+      const response = await api.registration.registrationExportExcel({ query: getExportQuery() })
       downloadBlob(response.data, `cyctf-registrations-by-division-${numId}.zip`)
     } catch (err) {
       showErrorMsg(err, t)

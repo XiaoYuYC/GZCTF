@@ -76,18 +76,6 @@ public class VerificationController(
 
         var code = GenerateVerificationCode();
         var codeKey = $"reg_code:{email}";
-
-        await cache.SetStringAsync(codeKey, code, new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(CodeExpirationMinutes)
-        }, token);
-
-        await cache.SetStringAsync(lastSentKey, DateTimeOffset.UtcNow.ToString("O"),
-            new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(SendIntervalSeconds)
-            }, token);
-
         var content = new MailContent(
             email,
             email,
@@ -103,6 +91,17 @@ public class VerificationController(
             return StatusCode(StatusCodes.Status500InternalServerError,
                 new RequestResponse("验证码邮件发送失败，请稍后再试"));
         }
+
+        // Only start the server-side cooldown after the mail has been queued successfully.
+        await cache.SetStringAsync(codeKey, code, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(CodeExpirationMinutes)
+        }, token);
+        await cache.SetStringAsync(lastSentKey, DateTimeOffset.UtcNow.ToString("O"),
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(SendIntervalSeconds)
+            }, token);
 
         logger.LogInformation("Verification code sent to {Email}", email);
 

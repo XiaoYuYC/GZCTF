@@ -2,9 +2,12 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using GZCTF.Models.Data;
 using GZCTF.Models.Data.Cyctf;
+using GZCTF.Models.Response.Cyctf;
 using GZCTF.Repositories.Interface;
+using GZCTF.Utils;
 using Microsoft.EntityFrameworkCore;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
@@ -243,9 +246,12 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
             .ToDictionary(group => group.Key, group => group.Count());
     }
 
-    public async Task<byte[]> ExportCsv(int? gameId, string? status, CancellationToken token = default)
+    public async Task<byte[]> ExportCsv(int? gameId, string? status, CancellationToken token = default,
+        bool? allMembersAccepted = null, int? divisionId = null, int? teamSize = null,
+        string? search = null, string? searchMode = null)
     {
-        var (registrations, fieldSchemas) = await LoadExportData(gameId, status, token);
+        var (registrations, fieldSchemas) = await LoadExportData(gameId, status, token,
+            allMembersAccepted, divisionId, teamSize, search, searchMode);
         var rows = new List<ExportRow>(registrations.Count);
         var columns = new List<ExportColumn>();
         var columnKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -269,21 +275,28 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         return Encoding.UTF8.GetBytes(csv.ToString());
     }
 
-    public async Task<byte[]> ExportExcelZip(int? gameId, string? status, CancellationToken token = default)
+    public async Task<byte[]> ExportExcelZip(int? gameId, string? status, CancellationToken token = default,
+        bool? allMembersAccepted = null, int? divisionId = null, int? teamSize = null,
+        string? search = null, string? searchMode = null)
     {
-        var (registrations, fieldSchemas) = await LoadExportData(gameId, status, token);
+        var (registrations, fieldSchemas) = await LoadExportData(gameId, status, token,
+            allMembersAccepted, divisionId, teamSize, search, searchMode);
         var divisionGroups = registrations
             .GroupBy(item => item.DivisionId)
             .ToDictionary(
                 group => group.Key,
                 group => (Name: group.First().Division?.Name ?? $"组别-{group.Key}", Registrations: group.ToList()));
 
-        // 指定赛事时，即使某个分组暂时没有报名记录，也生成对应的空工作簿和分组表头。
+        // 无额外筛选时保留原行为：指定赛事即使分组没有报名记录，也生成空工作簿。
+        // 有筛选时只保留命中的组别，避免把未命中的全局组别带入导出包。
+        var hasAdditionalFilter = allMembersAccepted.HasValue || divisionId.HasValue || teamSize.HasValue ||
+                                  !string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(status);
         if (gameId is { } selectedGameId)
         {
             var divisions = await Context.Divisions
                 .AsNoTracking()
-                .Where(division => division.GameId == selectedGameId)
+                .Where(division => division.GameId == selectedGameId &&
+                                   (!divisionId.HasValue || division.Id == divisionId.Value))
                 .Select(division => new { division.Id, division.Name })
                 .ToListAsync(token);
             foreach (var division in divisions)
@@ -294,8 +307,8 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
                     fieldSchemas[division.Id] = ParseExportFields(extension?.RegistrationFields);
                 }
 
-                if (!divisionGroups.ContainsKey(division.Id))
-                    divisionGroups[division.Id] = (division.Name, []);
+                if (!hasAdditionalFilter || divisionGroups.ContainsKey(division.Id) || divisionId == division.Id)
+                    divisionGroups.TryAdd(division.Id, (division.Name, []));
             }
         }
 
@@ -327,8 +340,15 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
     }
 
     private async Task<(List<Registration> Registrations, Dictionary<int, List<ExportField>> FieldSchemas)> LoadExportData(
-        int? gameId, string? status, CancellationToken token)
+        int? gameId, string? status, CancellationToken token, bool? allMembersAccepted, int? divisionId,
+        int? teamSize, string? search, string? searchMode)
     {
+        var statusList = string.IsNullOrWhiteSpace(status)
+            ? null
+            : status.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(value => value.ToUpperInvariant())
+                .ToHashSet();
+
         var registrations = (await store.GetByPrefix<Registration>(RootPrefix, token))
             .Select(item => item.Value)
             .Where(item => gameId is null || item.GameId == gameId)
@@ -336,17 +356,47 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
             .Select(group => group.OrderByDescending(item => item.UpdateTime)
                 .ThenByDescending(item => item.Deleted).First())
             .Where(item => !item.Deleted)
-            .Where(item => string.IsNullOrWhiteSpace(status) ||
-                           item.Status == status!.Trim().ToUpperInvariant())
+            .Where(item => statusList is null || statusList.Contains(item.Status))
             .OrderByDescending(item => item.CreateTime)
             .ToList();
         await Hydrate(registrations, token);
 
-        var fieldSchemas = new Dictionary<int, List<ExportField>>();
-        foreach (var divisionId in registrations.Select(item => item.DivisionId).Distinct())
+        if (divisionId.HasValue)
+            registrations = registrations.Where(item => item.DivisionId == divisionId.Value).ToList();
+
+        if (teamSize.HasValue)
+            registrations = registrations
+                .Where(item => RegistrationResponse.FromEntity(item).TeamSize == teamSize.Value)
+                .ToList();
+
+        if (allMembersAccepted.HasValue)
         {
-            var extension = await store.Get<DivisionExtension>($"CYCTF:DivisionExtension:{divisionId}", token);
-            fieldSchemas[divisionId] = ParseExportFields(extension?.RegistrationFields);
+            registrations = registrations
+                .Where(item => RegistrationResponse.FromEntity(item).AllMembersAccepted == allMembersAccepted.Value)
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            Func<string?, bool> matcher;
+            try
+            {
+                matcher = RegistrationSearchMatcher.CreateMatcher(search.Trim(), searchMode);
+                registrations = registrations
+                    .Where(item => RegistrationSearchMatcher.MatchesRegistration(item, matcher))
+                    .ToList();
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw new ArgumentException("正则搜索执行超时，请缩短表达式或改用通配符模式。", nameof(search));
+            }
+        }
+
+        var fieldSchemas = new Dictionary<int, List<ExportField>>();
+        foreach (var filteredDivisionId in registrations.Select(item => item.DivisionId).Distinct())
+        {
+            var extension = await store.Get<DivisionExtension>($"CYCTF:DivisionExtension:{filteredDivisionId}", token);
+            fieldSchemas[filteredDivisionId] = ParseExportFields(extension?.RegistrationFields);
         }
 
         return (registrations, fieldSchemas);
@@ -703,10 +753,11 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
     public async Task<bool> IsTeamNameExistsInGame(string teamName, int gameId, CancellationToken token = default)
     {
         var normalizedName = teamName.Trim();
+        var comparisonName = normalizedName.ToUpper();
 
-        // 1. 检查已创建的队伍（队伍名全局唯一）
+        // 1. 检查已创建的队伍（队伍名全局唯一，忽略大小写）
         var teamExists = await Context.Teams
-            .AnyAsync(t => t.Name == normalizedName, token);
+            .AnyAsync(t => t.Name.ToUpper() == comparisonName, token);
 
         if (teamExists)
             return true;

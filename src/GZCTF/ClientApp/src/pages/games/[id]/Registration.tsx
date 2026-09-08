@@ -333,31 +333,89 @@ const GameRegistration: FC = () => {
     setFieldValues((current) => ({ ...current, [name]: value }))
   }
 
-  const openVerificationCaptcha = () => {
-    const email = captainEmail.trim()
-    if (!email) {
+  const openVerificationCaptcha = async () => {
+    if (isLoadingDivisionExtension || sendingCode || countdown > 0) return
+
+    const name = teamName.trim()
+    if (!name || !selectedDivision) {
       showNotification({
         color: 'red',
-        message: '请输入邮箱地址',
+        message: '请先填写队伍名称并选择组别',
         icon: <Icon path={mdiAlertCircle} size={1} />,
       })
       return
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showNotification({
-        color: 'red',
-        message: '邮箱格式不正确',
-        icon: <Icon path={mdiAlertCircle} size={1} />,
-      })
-      return
-    }
+    setSendingCode(true)
+    try {
+      const response = await api.registration.registrationCheckTeamName(numId, name)
+      if (response.data.data === true) {
+        showNotification({
+          color: 'red',
+          message: '队伍名称已被占用，请更换队伍名称',
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return
+      }
 
-    setCaptchaToken(null)
-    setVerificationCaptchaOpen(true)
+      if (fieldSchema.error) {
+        showNotification({
+          color: 'red',
+          message: fieldSchema.error,
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return
+      }
+
+      const fieldValidationError = validateRegistrationFields(teamFields, memberFields, fieldValues, members)
+      if (fieldValidationError) {
+        showNotification({
+          color: 'red',
+          message: fieldValidationError,
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return
+      }
+
+      const email = captainEmail.trim()
+      if (!email) {
+        showNotification({
+          color: 'red',
+          message: '请输入邮箱地址',
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showNotification({
+          color: 'red',
+          message: '邮箱格式不正确',
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return
+      }
+
+      setCaptchaToken(null)
+      setVerificationCaptchaOpen(true)
+    } catch (err) {
+      showErrorMsg(err, t)
+    } finally {
+      setSendingCode(false)
+    }
   }
 
   const sendVerificationCode = async (token: string): Promise<boolean> => {
+    const name = teamName.trim()
+    if (!name || !selectedDivision) {
+      showNotification({
+        color: 'red',
+        message: '请先填写队伍名称并选择组别',
+        icon: <Icon path={mdiAlertCircle} size={1} />,
+      })
+      return false
+    }
+
     const email = captainEmail.trim()
     if (!email) {
       showNotification({
@@ -368,11 +426,50 @@ const GameRegistration: FC = () => {
       return false
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showNotification({
+        color: 'red',
+        message: '邮箱格式不正确',
+        icon: <Icon path={mdiAlertCircle} size={1} />,
+      })
+      return false
+    }
+
     setSendingCode(true)
     try {
+      const teamNameResponse = await api.registration.registrationCheckTeamName(numId, name)
+      if (teamNameResponse.data.data === true) {
+        showNotification({
+          color: 'red',
+          message: '队伍名称已被占用，请更换队伍名称',
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return false
+      }
+
+      if (fieldSchema.error) {
+        showNotification({
+          color: 'red',
+          message: fieldSchema.error,
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return false
+      }
+
+      const fieldValidationError = validateRegistrationFields(teamFields, memberFields, fieldValues, members)
+      if (fieldValidationError) {
+        showNotification({
+          color: 'red',
+          message: fieldValidationError,
+          icon: <Icon path={mdiAlertCircle} size={1} />,
+        })
+        return false
+      }
+
       await api.verification.verificationSendVerificationCode({
         email,
         purpose: 'REGISTRATION',
+        gameId: numId,
         challenge: token,
       })
       setCaptchaToken(token)

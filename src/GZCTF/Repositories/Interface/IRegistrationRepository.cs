@@ -41,12 +41,16 @@ public interface IRegistrationRepository : IRepository
 
     Task<Dictionary<string, int>> GetRegistrationStats(int gameId, CancellationToken token = default);
 
-    Task<byte[]> ExportCsv(int? gameId, string? status, CancellationToken token = default);
+    Task<byte[]> ExportCsv(int? gameId, string? status, CancellationToken token = default,
+        bool? allMembersAccepted = null, int? divisionId = null, int? teamSize = null,
+        string? search = null, string? searchMode = null);
 
     /// <summary>
     /// 按组别分别导出报名信息，每个组别生成一个 Excel 工作簿并打包为 ZIP。
     /// </summary>
-    Task<byte[]> ExportExcelZip(int? gameId, string? status, CancellationToken token = default);
+    Task<byte[]> ExportExcelZip(int? gameId, string? status, CancellationToken token = default,
+        bool? allMembersAccepted = null, int? divisionId = null, int? teamSize = null,
+        string? search = null, string? searchMode = null);
 
     Task<bool> DeleteRegistration(int id, CancellationToken token = default);
 

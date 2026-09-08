@@ -7554,6 +7554,26 @@ export class Api<
      * @summary 队伍报名比赛
      * @request POST:/api/cyctf/registrations
      */
+    /**
+     * 检查队伍名称是否已被占用
+     * @request GET:/api/cyctf/registrations/check-team-name
+     */
+    registrationCheckTeamName: (
+      gameId: number,
+      teamName: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<RequestResponseOfBoolean, RequestResponse>({
+        path: `/api/cyctf/registrations/check-team-name`,
+        method: "GET",
+        query: {
+          gameId,
+          teamName,
+          ...params.query,
+        },
+        format: "json",
+        ...params,
+      }),
     registrationRegisterTeam: (
       data: RegistrationRequest,
       params: RequestParams = {},

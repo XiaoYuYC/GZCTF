@@ -54,6 +54,30 @@ public class RegistrationController(
     private const int MaxTeamsAllowed = 3;
 
     /// <summary>
+    /// 检查队伍名称是否已被占用（无需登录）
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("check-team-name")]
+    [EnableRateLimiting(nameof(RateLimiter.LimitPolicy.Register))]
+    [ProducesResponseType(typeof(RequestResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(RequestResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CheckTeamName(
+        [FromQuery] int gameId, [FromQuery] string? teamName, CancellationToken token)
+    {
+        if (gameId <= 0)
+            return BadRequest(new RequestResponse("比赛参数无效", StatusCodes.Status400BadRequest));
+
+        if (string.IsNullOrWhiteSpace(teamName))
+            return BadRequest(new RequestResponse("请填写队伍名称", StatusCodes.Status400BadRequest));
+
+        if (await gameRepository.GetGameById(gameId, token) is null)
+            return NotFound(new RequestResponse("比赛不存在", StatusCodes.Status404NotFound));
+
+        var exists = await registrationRepository.IsTeamNameExistsInGame(teamName.Trim(), gameId, token);
+        return Ok(new RequestResponse<bool>("队伍名称检查完成", exists, StatusCodes.Status200OK));
+    }
+
+    /// <summary>
     /// 报名（需要登录）
     /// </summary>
     [HttpPost]
@@ -1042,19 +1066,37 @@ public class RegistrationController(
     [HttpGet("export")]
     [RequireAdmin]
     public async Task<IActionResult> Export([FromQuery] int? gameId, [FromQuery] string? status,
-        CancellationToken token)
+        [FromQuery] bool? allMembersAccepted, [FromQuery] int? divisionId, [FromQuery] int? teamSize,
+        [FromQuery] string? search, [FromQuery] string? searchMode, CancellationToken token)
     {
-        var bytes = await registrationRepository.ExportCsv(gameId, status, token);
-        return File(bytes, "text/csv; charset=utf-8", "cyctf-registrations.csv");
+        try
+        {
+            var bytes = await registrationRepository.ExportCsv(gameId, status, token,
+                allMembersAccepted, divisionId, teamSize, search, searchMode);
+            return File(bytes, "text/csv; charset=utf-8", "cyctf-registrations.csv");
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new RequestResponse(exception.Message, StatusCodes.Status400BadRequest));
+        }
     }
 
     [HttpGet("export-excel")]
     [RequireAdmin]
     public async Task<IActionResult> ExportExcel([FromQuery] int? gameId, [FromQuery] string? status,
-        CancellationToken token)
+        [FromQuery] bool? allMembersAccepted, [FromQuery] int? divisionId, [FromQuery] int? teamSize,
+        [FromQuery] string? search, [FromQuery] string? searchMode, CancellationToken token)
     {
-        var bytes = await registrationRepository.ExportExcelZip(gameId, status, token);
-        return File(bytes, "application/zip", "cyctf-registrations-by-division.zip");
+        try
+        {
+            var bytes = await registrationRepository.ExportExcelZip(gameId, status, token,
+                allMembersAccepted, divisionId, teamSize, search, searchMode);
+            return File(bytes, "application/zip", "cyctf-registrations-by-division.zip");
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new RequestResponse(exception.Message, StatusCodes.Status400BadRequest));
+        }
     }
 
     [HttpGet("games/{gameId:int}/stats")]
