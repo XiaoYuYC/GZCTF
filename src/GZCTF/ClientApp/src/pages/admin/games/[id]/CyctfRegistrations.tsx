@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Checkbox,
   Group,
   Modal,
   NumberInput,
@@ -12,6 +13,7 @@ import {
   Tooltip,
   MultiSelect,
   Paper,
+  Progress,
   ScrollArea,
   Stack,
   Table,
@@ -43,7 +45,11 @@ import { WithGameEditTab } from '@Components/admin/WithGameEditTab'
 import { showErrorMsg } from '@Utils/Shared'
 import { useIsMobile } from '@Utils/ThemeOverride'
 import { useAdminDivisions, useAdminGame } from '@Hooks/useGame'
-import api, { type ArrayResponseOfRegistrationResponse, type RegistrationResponse } from '@Api'
+import api, {
+  type ArrayResponseOfRegistrationResponse,
+  type RegistrationInvitationProgressResponse,
+  type RegistrationResponse,
+} from '@Api'
 import layoutClasses from '@Styles/AdminLayout.module.css'
 
 const ITEM_COUNT_PER_PAGE = 30
@@ -73,7 +79,11 @@ const CyctfRegistrations: FC = () => {
   const [selectedReg, setSelectedReg] = useState<RegistrationResponse | null>(null)
   const [reviewNote, setReviewNote] = useInputState('')
   const [opened, { open, close }] = useDisclosure(false)
+  const [batchOpened, { open: openBatch, close: closeBatch }] = useDisclosure(false)
   const [processingAction, setProcessingAction] = useState(false)
+  const [batchSending, setBatchSending] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<RegistrationInvitationProgressResponse | null>(null)
+  const [includeCaptains, setIncludeCaptains] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [memberFilter, setMemberFilter] = useState<string[]>([])
   const [divisionFilter, setDivisionFilter] = useState<string | null>(null)
@@ -231,6 +241,9 @@ const CyctfRegistrations: FC = () => {
   const canGoPrevious = selectionReady && (selectedIndex > 0 || (selectedIndex === 0 && page > 1))
   const canGoNext = selectionReady && (selectedIndex < registrations.length - 1 || page < pageCount)
   const actionDisabled = processingAction || !selectionReady
+  const batchSent = batchProgress?.sent ?? 0
+  const batchTotal = batchProgress?.total ?? 0
+  const batchPercentage = batchTotal > 0 ? Math.min(100, Math.round((batchSent / batchTotal) * 100)) : 0
   const selectFromList = (list: RegistrationResponse[], index: number, id?: number) => {
     if (list.length === 0) {
       setSelectedReg(null)
@@ -394,8 +407,7 @@ const CyctfRegistrations: FC = () => {
     URL.revokeObjectURL(url)
   }
 
-  const getExportQuery = () => ({
-    gameId: numId,
+  const getFilterQuery = () => ({
     status: statusFilter.length > 0 ? statusFilter.join(',') : undefined,
     allMembersAccepted: memberFilter.includes('allAccepted')
       ? true
@@ -410,7 +422,9 @@ const CyctfRegistrations: FC = () => {
 
   const onExport = async () => {
     try {
-      const response = await api.registration.registrationExport({ query: getExportQuery() })
+      const response = await api.registration.registrationExport({
+        query: { gameId: numId, ...getFilterQuery() },
+      })
       downloadBlob(response.data, `cyctf-registrations-${numId}.csv`)
     } catch (err) {
       showErrorMsg(err, t)
@@ -419,10 +433,58 @@ const CyctfRegistrations: FC = () => {
 
   const onExportExcel = async () => {
     try {
-      const response = await api.registration.registrationExportExcel({ query: getExportQuery() })
+      const response = await api.registration.registrationExportExcel({
+        query: { gameId: numId, ...getFilterQuery() },
+      })
       downloadBlob(response.data, `cyctf-registrations-by-division-${numId}.zip`)
     } catch (err) {
       showErrorMsg(err, t)
+    }
+  }
+
+  const onBatchResendInvitations = async () => {
+    const taskId = crypto.randomUUID()
+    let pollTimer: number | undefined
+    const updateProgress = async (): Promise<boolean> => {
+      try {
+        const response = await api.registration.registrationGetBatchInvitationProgress(taskId)
+        setBatchProgress(response.data)
+        return true
+      } catch {
+        // The first poll may run before the server creates the progress entry.
+        return false
+      }
+    }
+
+    setBatchProgress({ sent: 0, total: 0, completed: false, failed: false })
+    setBatchSending(true)
+    try {
+      const request = api.registration.registrationResendPendingInvitations(numId, {
+        query: { ...getFilterQuery(), includeCaptains, taskId },
+      })
+      pollTimer = window.setInterval(() => void updateProgress(), 500)
+      const response = await request
+      await updateProgress()
+      await loadData(page)
+      showNotification({
+        color: 'teal',
+        message: response.data.title || '批量邀请邮件已处理',
+        icon: <Icon path={mdiEmailOutline} size={1} />,
+      })
+    } catch (err) {
+      if (!(await updateProgress())) {
+        setBatchProgress({
+          sent: 0,
+          total: 0,
+          completed: true,
+          failed: true,
+          message: '批量发送任务启动失败',
+        })
+      }
+      showErrorMsg(err, t)
+    } finally {
+      if (pollTimer !== undefined) window.clearInterval(pollTimer)
+      setBatchSending(false)
     }
   }
 
@@ -482,6 +544,19 @@ const CyctfRegistrations: FC = () => {
               已拒绝: <strong>{stats.REJECTED || 0}</strong>
             </Text>
             <Group gap="xs">
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => {
+                  setIncludeCaptains(false)
+                  setBatchProgress(null)
+                  openBatch()
+                }}
+                disabled={loading || total === 0}
+                leftSection={<Icon path={mdiEmailOutline} size={0.8} />}
+              >
+                批量发送邀请
+              </Button>
               <Button size="xs" variant="light" onClick={onExport} leftSection={<Icon path={mdiDownload} size={0.8} />}>
                 导出 CSV
               </Button>
@@ -650,6 +725,56 @@ const CyctfRegistrations: FC = () => {
           </Group>
         </Paper>
       </Stack>
+
+      <Modal
+        opened={batchOpened}
+        onClose={() => {
+          if (!batchSending) closeBatch()
+        }}
+        title="批量发送邀请邮件"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">仅处理当前筛选结果中待审核且尚未接受邀请的队员。</Text>
+          <Checkbox
+            label="同时给相应队长发送报名提醒邮件"
+            checked={includeCaptains}
+            onChange={(event) => setIncludeCaptains(event.currentTarget.checked)}
+            disabled={batchSending || batchProgress !== null}
+          />
+          {batchProgress && (
+            <Stack gap="xs">
+              <Progress
+                value={batchPercentage}
+                color={batchProgress.failed ? 'red' : batchProgress.completed ? 'teal' : 'blue'}
+                size="lg"
+              />
+              <Text ta="center" fw={600} ff="monospace">
+                {batchSent}/{batchTotal} {batchPercentage}%
+              </Text>
+              {batchProgress.message && (
+                <Text size="sm" c={batchProgress.failed ? 'red' : 'dimmed'} ta="center">
+                  {batchProgress.message}
+                </Text>
+              )}
+            </Stack>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeBatch} disabled={batchSending}>
+              {batchProgress?.completed ? '关闭' : '取消'}
+            </Button>
+            {!batchProgress?.completed && (
+              <Button
+                onClick={() => void onBatchResendInvitations()}
+                loading={batchSending}
+                leftSection={<Icon path={mdiEmailOutline} size={0.8} />}
+              >
+                发送
+              </Button>
+            )}
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={opened}

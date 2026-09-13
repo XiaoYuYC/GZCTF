@@ -196,11 +196,13 @@ public sealed class RegistrationRepositoryTests : IAsyncLifetime
 
         var csvHeader = csv.TrimStart('\uFEFF').Split('\n', 2)[0].TrimEnd('\r');
         Assert.Equal(
-            "队伍名,学校,队长年级,队员1年级,报名状态,审核备注,审核人,报名时间,审核时间,更新时间",
+            "队伍名,学校,队长邮箱,队长年级,队员1邮箱,队员1年级,报名状态,审核备注,审核人,报名时间,审核时间,更新时间",
             csvHeader);
         Assert.Contains("已通过", csv);
         Assert.Contains("某大学,主校区", csv);
         Assert.Contains("大三", csv);
+        Assert.Contains("captain@example.com", csv);
+        Assert.Contains("member@example.com", csv);
         Assert.DoesNotContain("line1", csv);
         Assert.DoesNotContain("hobby", csv);
         Assert.DoesNotContain("队伍字段:", csv);
@@ -222,7 +224,7 @@ public sealed class RegistrationRepositoryTests : IAsyncLifetime
             .Select(index => headerRow.GetCell(index).StringCellValue)
             .ToArray();
         Assert.Equal(
-            new[] { "队伍名", "学校", "队长年级", "队员1年级", "报名状态", "审核备注", "审核人", "报名时间", "审核时间", "更新时间" },
+            new[] { "队伍名", "学校", "队长邮箱", "队长年级", "队员1邮箱", "队员1年级", "报名状态", "审核备注", "审核人", "报名时间", "审核时间", "更新时间" },
             headers);
         Assert.DoesNotContain(headers, header => header.Contains("字段:", StringComparison.Ordinal));
         Assert.DoesNotContain(headers, header => header.Contains("账号", StringComparison.Ordinal));
@@ -231,6 +233,96 @@ public sealed class RegistrationRepositoryTests : IAsyncLifetime
         var workbookEntries = archive.Entries.Where(entry => entry.Name.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)).ToArray();
         Assert.Equal(2, workbookEntries.Length);
         Assert.Contains(workbookEntries, entry => entry.Name.Contains("研究生组", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Export_UsesManagementFiltersInsteadOfExportingAllRegistrations()
+    {
+        var game = new Game { Id = 1, Title = "Filtered Export Game", PublicKey = "public", PrivateKey = "private" };
+        var firstDivision = new Division { Id = 1, GameId = 1, Name = "本科组" };
+        var secondDivision = new Division { Id = 2, GameId = 1, Name = "研究生组" };
+        _context.Games.Add(game);
+        _context.Divisions.AddRange(firstDivision, secondDivision);
+        await _context.SaveChangesAsync();
+
+        await _store.Set("CYCTF:DivisionExtension:1", new DivisionExtension
+        {
+            DivisionId = 1,
+            RegistrationFields = "[{\"name\":\"school\",\"label\":\"学校\",\"scope\":\"team\"}]"
+        });
+
+        await _repository.CreateRegistration(new Registration
+        {
+            GameId = 1,
+            DivisionId = 1,
+            TeamName = "命中队伍",
+            Status = "PENDING",
+            CaptainEmail = "matched@example.com",
+            FormData = "{\"school\":\"命中大学\"}",
+            MemberInvitations = JsonSerializer.Serialize(new[]
+            {
+                new MemberInvitation { Email = "accepted@example.com", Status = InvitationStatus.Accepted }
+            })
+        });
+        await _repository.CreateRegistration(new Registration
+        {
+            GameId = 1,
+            DivisionId = 2,
+            TeamName = "未命中队伍",
+            Status = "PENDING",
+            CaptainEmail = "unmatched@example.com",
+            FormData = "{\"school\":\"其他大学\"}",
+            MemberInvitations = JsonSerializer.Serialize(new[]
+            {
+                new MemberInvitation { Email = "pending@example.com", Status = InvitationStatus.Pending }
+            })
+        });
+
+        var csv = Encoding.UTF8.GetString(await _repository.ExportCsv(
+            1, null, default, true, 1, 2, "命中", "text"));
+        Assert.Contains("命中队伍", csv);
+        Assert.DoesNotContain("未命中队伍", csv);
+
+        var excelZip = await _repository.ExportExcelZip(1, null, default, true, 1, 2, "命中", "text");
+        using var archive = new ZipArchive(new MemoryStream(excelZip), ZipArchiveMode.Read);
+        var workbookEntries = archive.Entries
+            .Where(entry => entry.Name.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var workbookEntry = Assert.Single(workbookEntries);
+        Assert.Contains("本科组", workbookEntry.Name);
+    }
+
+    [Fact]
+    public async Task IsTeamNameExistsInGame_MatchesActiveTeamsAndPendingRegistrationsOnly()
+    {
+        var captain = new UserInfo { Id = Guid.NewGuid(), UserName = "name-check-captain", Email = "name-check@example.com" };
+        _context.Users.Add(captain);
+        _context.Teams.Add(new Team { Id = 21, Name = "已有队伍", CaptainId = captain.Id, Captain = captain });
+        await _context.SaveChangesAsync();
+
+        await _store.Set("CYCTF:Registration:1:pending", new Registration
+        {
+            Id = 50,
+            GameId = 1,
+            DivisionId = 1,
+            TeamName = "待审核队伍",
+            Status = "PENDING",
+            UpdateTime = DateTimeOffset.UtcNow
+        });
+        await _store.Set("CYCTF:Registration:1:released", new Registration
+        {
+            Id = 51,
+            GameId = 1,
+            DivisionId = 1,
+            TeamName = "已释放队伍",
+            Status = "REJECTED",
+            UpdateTime = DateTimeOffset.UtcNow
+        });
+
+        Assert.True(await _repository.IsTeamNameExistsInGame("已有队伍", 1));
+        Assert.True(await _repository.IsTeamNameExistsInGame("待审核队伍", 1));
+        Assert.False(await _repository.IsTeamNameExistsInGame("已释放队伍", 1));
+        Assert.False(await _repository.IsTeamNameExistsInGame("待审核队伍", 2));
     }
 
     [Fact]

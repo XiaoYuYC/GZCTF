@@ -1014,6 +1014,190 @@ public class RegistrationController(
         return Ok(new RequestResponse("队员邀请邮件已重新发送", StatusCodes.Status200OK));
     }
 
+    [HttpPost("games/{gameId:int}/resend-pending-invitations")]
+    [RequireAdmin]
+    public async Task<IActionResult> ResendPendingInvitations(
+        int gameId,
+        [FromQuery] string? taskId,
+        [FromQuery] bool includeCaptains,
+        [FromQuery] string? status,
+        [FromQuery] bool? allMembersAccepted,
+        [FromQuery] int? divisionId,
+        [FromQuery] int? teamSize,
+        [FromQuery] string? search,
+        [FromQuery] string? searchMode,
+        CancellationToken token)
+    {
+        if (!Guid.TryParse(taskId, out _))
+            return BadRequest(new RequestResponse("批量发送任务参数无效", StatusCodes.Status400BadRequest));
+
+        var game = await gameRepository.GetGameById(gameId, token);
+        if (game is null)
+            return NotFound(new RequestResponse("比赛不存在", StatusCodes.Status404NotFound));
+
+        List<Registration> registrations;
+        try
+        {
+            registrations = await registrationRepository.GetRegistrationsByGameId(gameId, status, token);
+            if (divisionId.HasValue)
+                registrations = registrations.Where(item => item.DivisionId == divisionId.Value).ToList();
+            if (teamSize.HasValue)
+                registrations = registrations
+                    .Where(item => RegistrationResponse.FromEntity(item).TeamSize == teamSize.Value)
+                    .ToList();
+            if (allMembersAccepted.HasValue)
+                registrations = registrations
+                    .Where(item => RegistrationResponse.FromEntity(item).AllMembersAccepted == allMembersAccepted.Value)
+                    .ToList();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var matcher = RegistrationSearchMatcher.CreateMatcher(search.Trim(), searchMode);
+                registrations = registrations
+                    .Where(item => RegistrationSearchMatcher.MatchesRegistration(item, matcher))
+                    .ToList();
+            }
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return BadRequest(new RequestResponse("正则搜索执行超时，请缩短表达式或改用通配符模式。",
+                StatusCodes.Status400BadRequest));
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new RequestResponse(exception.Message, StatusCodes.Status400BadRequest));
+        }
+
+        var batches = new List<(Registration Registration, List<MemberInvitation> Invitations,
+            List<MemberInvitation> PendingInvitations, bool NotifyCaptain)>();
+        foreach (var registration in registrations.Where(item =>
+                     string.Equals(item.Status, "PENDING", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (string.IsNullOrWhiteSpace(registration.MemberInvitations))
+                continue;
+
+            List<MemberInvitation> invitations;
+            try
+            {
+                invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(registration.MemberInvitations) ?? [];
+            }
+            catch (JsonException exception)
+            {
+                logger.LogWarning(exception, "Skipped malformed invitations for registration {RegistrationId}.",
+                    registration.Id);
+                continue;
+            }
+
+            var pendingInvitations = invitations.Where(invitation =>
+                    !string.Equals(invitation.Status, InvitationStatus.Accepted, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(invitation.Email))
+                .ToList();
+            if (pendingInvitations.Count == 0)
+                continue;
+
+            var teamCaptainEmail = registration.Team?.Members
+                .FirstOrDefault(member => member.Id == registration.Team.CaptainId)?.Email;
+            var notifyCaptain = includeCaptains && registration.Division is not null &&
+                                (!string.IsNullOrWhiteSpace(registration.CaptainEmail) ||
+                                 !string.IsNullOrWhiteSpace(teamCaptainEmail));
+            batches.Add((registration, invitations, pendingInvitations, notifyCaptain));
+        }
+
+        var progress = new RegistrationInvitationProgressResponse
+        {
+            Total = batches.Sum(batch => batch.PendingInvitations.Count + (batch.NotifyCaptain ? 1 : 0))
+        };
+        var progressKey = BatchInvitationProgressKey(taskId!);
+        if (await cache.GetStringAsync(progressKey, token) is not null)
+            return Conflict(new RequestResponse("批量发送任务已存在", StatusCodes.Status409Conflict));
+        await SaveBatchInvitationProgress(taskId!, progress, token);
+
+        var memberMailCount = 0;
+        var captainMailCount = 0;
+        try
+        {
+            foreach (var batch in batches)
+            {
+                var registration = batch.Registration;
+                var teamName = registration.TeamName ?? registration.Team?.Name ?? "未命名队伍";
+                var sentAt = DateTimeOffset.UtcNow;
+                foreach (var invitation in batch.PendingInvitations)
+                {
+                    if (string.IsNullOrWhiteSpace(invitation.Token))
+                        invitation.Token = Guid.NewGuid().ToString("N");
+                    invitation.Status = InvitationStatus.Pending;
+                    invitation.RespondedAt = null;
+                    invitation.SentAt = sentAt;
+                    QueueMemberInvitationEmail(game, teamName, invitation.Email, invitation.Token);
+                    memberMailCount++;
+                    progress.Sent++;
+                    await SaveBatchInvitationProgress(taskId!, progress, token);
+                }
+
+                registration.MemberInvitations = JsonSerializer.Serialize(batch.Invitations);
+                registration.UpdateTime = sentAt;
+                await registrationRepository.UpdateRegistration(registration, token);
+
+                if (!batch.NotifyCaptain)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(registration.CaptainEmail))
+                    QueueNoAuthRegistrationNotification(game, teamName, registration.Division!,
+                        registration.CaptainEmail, registration.Status);
+                else
+                    QueueRegistrationNotification(game, registration.Team!, registration.Division!,
+                        registration.Status, registration.ReviewNote);
+                captainMailCount++;
+                progress.Sent++;
+                await SaveBatchInvitationProgress(taskId!, progress, token);
+            }
+
+            var message = progress.Total == 0
+                ? "当前筛选结果中没有需要重发的队员邀请"
+                : includeCaptains
+                    ? $"已处理 {batches.Count} 支队伍：队员邀请 {memberMailCount} 封，队长提醒 {captainMailCount} 封"
+                    : $"已处理 {batches.Count} 支队伍，共发送队员邀请 {memberMailCount} 封";
+            progress.Completed = true;
+            progress.Message = message;
+            await SaveBatchInvitationProgress(taskId!, progress, token);
+            return Ok(new RequestResponse(message, StatusCodes.Status200OK));
+        }
+        catch (Exception exception)
+        {
+            progress.Completed = true;
+            progress.Failed = true;
+            progress.Message = "批量发送任务执行中断";
+            await SaveBatchInvitationProgress(taskId!, progress, CancellationToken.None);
+            logger.LogError(exception, "Batch invitation task {TaskId} failed.", taskId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new RequestResponse(progress.Message, StatusCodes.Status500InternalServerError));
+        }
+    }
+
+    [HttpGet("batch-invitation-progress/{taskId}")]
+    [RequireAdmin]
+    public async Task<IActionResult> GetBatchInvitationProgress(string taskId, CancellationToken token)
+    {
+        if (!Guid.TryParse(taskId, out _))
+            return BadRequest(new RequestResponse("批量发送任务参数无效", StatusCodes.Status400BadRequest));
+
+        var raw = await cache.GetStringAsync(BatchInvitationProgressKey(taskId), token);
+        if (string.IsNullOrWhiteSpace(raw))
+            return NotFound(new RequestResponse("批量发送任务不存在", StatusCodes.Status404NotFound));
+
+        var progress = JsonSerializer.Deserialize<RegistrationInvitationProgressResponse>(raw);
+        return progress is null
+            ? NotFound(new RequestResponse("批量发送任务不存在", StatusCodes.Status404NotFound))
+            : Ok(progress);
+    }
+
+    private static string BatchInvitationProgressKey(string taskId) =>
+        $"cyctf:registration:batch-invitation:{taskId}";
+
+    private Task SaveBatchInvitationProgress(string taskId, RegistrationInvitationProgressResponse progress,
+        CancellationToken token) =>
+        cache.SetStringAsync(BatchInvitationProgressKey(taskId), JsonSerializer.Serialize(progress),
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) }, token);
+
     [HttpPost("{id:int}/cancel")]
     [RequireAdmin]
     public async Task<IActionResult> CancelRegistration(int id, CancellationToken token)

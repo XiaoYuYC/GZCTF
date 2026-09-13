@@ -27,6 +27,8 @@ public class CyctfAuthorizationTests
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.UpdateRegistrationReviewNote))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendCaptainEmail))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendMemberInvitationEmail))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendPendingInvitations))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.GetBatchInvitationProgress))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.CancelRegistration))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.Export))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ExportExcel))]
@@ -64,5 +66,17 @@ public class CyctfAuthorizationTests
         Assert.NotNull(method!.GetCustomAttribute<AllowAnonymousAttribute>());
         Assert.Null(method.GetCustomAttribute<AuthorizeAttribute>());
         Assert.Equal(route, method.GetCustomAttribute<HttpPostAttribute>()?.Template);
+    }
+
+    [Fact]
+    public void CheckTeamNameEndpoint_IsAnonymousGet()
+    {
+        var method = typeof(RegistrationController).GetMethod(nameof(RegistrationController.CheckTeamName),
+            BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.NotNull(method);
+        Assert.NotNull(method!.GetCustomAttribute<AllowAnonymousAttribute>());
+        Assert.Null(method.GetCustomAttribute<AuthorizeAttribute>());
+        Assert.Equal("check-team-name", method.GetCustomAttribute<HttpGetAttribute>()?.Template);
     }
 }

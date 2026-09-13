@@ -2481,6 +2481,17 @@ export interface RegistrationReviewNoteRequest {
   reviewNote?: string | null;
 }
 
+/** 批量发送报名邀请邮件的实时进度 */
+export interface RegistrationInvitationProgressResponse {
+  /** @format int32 */
+  sent?: number;
+  /** @format int32 */
+  total?: number;
+  completed?: boolean;
+  failed?: boolean;
+  message?: string | null;
+}
+
 /** 赞助商响应 */
 export interface SponsorResponse {
   /** @format int32 */
@@ -7659,6 +7670,37 @@ export class Api<
       this.request<RequestResponse, RequestResponse>({
         path: `/api/cyctf/registrations/${id}/members/${memberIndex}/resend-email`,
         method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * 批量重新发送未接受的队员邀请（管理员）
+     * @request POST:/api/cyctf/registrations/games/{gameId}/resend-pending-invitations
+     */
+    registrationResendPendingInvitations: (
+      gameId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/games/${gameId}/resend-pending-invitations`,
+        method: "POST",
+        query: params.query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * 查询批量邀请邮件发送进度（管理员）
+     * @request GET:/api/cyctf/registrations/batch-invitation-progress/{taskId}
+     */
+    registrationGetBatchInvitationProgress: (
+      taskId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<RegistrationInvitationProgressResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/batch-invitation-progress/${taskId}`,
+        method: "GET",
         format: "json",
         ...params,
       }),

@@ -405,13 +405,12 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
     private static void AddSchemaColumns(IReadOnlyCollection<ExportField> fields,
         ICollection<ExportColumn> columns, ISet<string> columnKeys)
     {
-        foreach (var field in fields)
-        {
-            if (string.Equals(field.Scope, "team", StringComparison.Ordinal))
-                AddColumn(columns, columnKeys, $"teamField:{field.Name}", field.Label);
-            else
-                AddColumn(columns, columnKeys, $"captainField:{field.Name}", $"队长{field.Label}");
-        }
+        foreach (var field in fields.Where(field => string.Equals(field.Scope, "team", StringComparison.Ordinal)))
+            AddColumn(columns, columnKeys, $"teamField:{field.Name}", field.Label);
+
+        AddColumn(columns, columnKeys, "captainEmail", "队长邮箱");
+        foreach (var field in fields.Where(field => !string.Equals(field.Scope, "team", StringComparison.Ordinal)))
+            AddColumn(columns, columnKeys, $"captainField:{field.Name}", $"队长{field.Label}");
     }
 
     private static XSSFWorkbook BuildRegistrationWorkbook(string divisionName, IReadOnlyCollection<ExportRow> rows,
@@ -599,6 +598,9 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
             row.DynamicValues[key] = FormatExportValue(formValues?.GetValueOrDefault(field.Name));
         }
 
+        AddColumn(columns, columnKeys, "captainEmail", "队长邮箱");
+        row.DynamicValues["captainEmail"] = registration.CaptainEmail ?? registration.Team?.Captain?.Email ?? string.Empty;
+
         foreach (var field in memberFields)
         {
             var key = $"captainField:{field.Name}";
@@ -611,6 +613,9 @@ public class RegistrationRepository(AppDbContext context, CyctfConfigStore store
         {
             var memberValues = ParseJsonObject(invitations[index].MemberFields);
             var prefix = $"member{index + 1}";
+            var emailKey = $"{prefix}.email";
+            AddColumn(columns, columnKeys, emailKey, $"队员{index + 1}邮箱");
+            row.DynamicValues[emailKey] = invitations[index].Email;
             foreach (var field in memberFields)
             {
                 var key = $"{prefix}.field:{field.Name}";
