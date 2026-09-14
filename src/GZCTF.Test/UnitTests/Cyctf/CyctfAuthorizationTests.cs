@@ -27,6 +27,8 @@ public class CyctfAuthorizationTests
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.UpdateRegistrationReviewNote))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendCaptainEmail))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendMemberInvitationEmail))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendCaptainAccountCreationEmail))]
+    [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendMemberAccountCreationEmail))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.ResendPendingInvitations))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.GetBatchInvitationProgress))]
     [InlineData(typeof(RegistrationController), nameof(RegistrationController.CancelRegistration))]

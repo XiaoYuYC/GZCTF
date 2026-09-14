@@ -398,6 +398,44 @@ const CyctfRegistrations: FC = () => {
     }
   }
 
+  const onResendCaptainAccountEmail = async () => {
+    if (!selectedReg || !selectionReady || selectedStatus !== 'APPROVED') return
+    if (!window.confirm('发送账号创建通知将重置队长密码，原密码会立即失效。确认继续？')) return
+
+    setProcessingAction(true)
+    try {
+      const response = await api.registration.registrationResendCaptainAccountCreationEmail(selectedReg.id!)
+      showNotification({
+        color: 'teal',
+        message: response.data.title || '队长账号创建通知已发送',
+        icon: <Icon path={mdiEmailOutline} size={1} />,
+      })
+    } catch (err) {
+      showErrorMsg(err, t)
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const onResendMemberAccountEmail = async (memberIndex: number) => {
+    if (!selectedReg || !selectionReady || selectedStatus !== 'APPROVED') return
+    if (!window.confirm(`发送账号创建通知将重置队员 ${memberIndex} 的密码，原密码会立即失效。确认继续？`)) return
+
+    setProcessingAction(true)
+    try {
+      const response = await api.registration.registrationResendMemberAccountCreationEmail(selectedReg.id!, memberIndex)
+      showNotification({
+        color: 'teal',
+        message: response.data.title || `队员 ${memberIndex} 账号创建通知已发送`,
+        icon: <Icon path={mdiEmailOutline} size={1} />,
+      })
+    } catch (err) {
+      showErrorMsg(err, t)
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
   const downloadBlob = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -875,6 +913,16 @@ const CyctfRegistrations: FC = () => {
                     >
                       重新发信
                     </Button>
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="orange"
+                      onClick={() => void onResendCaptainAccountEmail()}
+                      loading={processingAction}
+                      disabled={actionDisabled || selectedStatus !== 'APPROVED' || !selectedReg.teamId}
+                    >
+                      发送账号通知
+                    </Button>
                   </Group>
                 </Group>
                 <Text size="sm">
@@ -891,6 +939,8 @@ const CyctfRegistrations: FC = () => {
               fields={divisionFields}
               members={selectedReg.members}
               onResendMemberEmail={(memberIndex) => void onResendMemberEmail(memberIndex)}
+              onResendMemberAccountEmail={(memberIndex) => void onResendMemberAccountEmail(memberIndex)}
+              accountNotificationEnabled={selectedStatus === 'APPROVED' && Boolean(selectedReg.teamId)}
               disabled={actionDisabled}
             />
 

@@ -7675,6 +7675,34 @@ export class Api<
       }),
 
     /**
+     * 重新发送队长账号创建通知（管理员，会重置密码）
+     * @request POST:/api/cyctf/registrations/{id}/captain/resend-account-creation-email
+     */
+    registrationResendCaptainAccountCreationEmail: (id: number, params: RequestParams = {}) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/captain/resend-account-creation-email`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * 重新发送指定队员账号创建通知（管理员，会重置密码）
+     * @request POST:/api/cyctf/registrations/{id}/members/{memberIndex}/resend-account-creation-email
+     */
+    registrationResendMemberAccountCreationEmail: (
+      id: number,
+      memberIndex: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RequestResponse, RequestResponse>({
+        path: `/api/cyctf/registrations/${id}/members/${memberIndex}/resend-account-creation-email`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * 批量重新发送未接受的队员邀请（管理员）
      * @request POST:/api/cyctf/registrations/games/{gameId}/resend-pending-invitations
      */

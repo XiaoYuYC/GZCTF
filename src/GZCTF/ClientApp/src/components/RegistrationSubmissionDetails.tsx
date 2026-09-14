@@ -155,8 +155,18 @@ export const RegistrationSubmissionDetails: FC<{
   fields: RegistrationField[]
   members?: RegistrationMemberResponse[] | null
   onResendMemberEmail?: (memberIndex: number) => void
+  onResendMemberAccountEmail?: (memberIndex: number) => void
+  accountNotificationEnabled?: boolean
   disabled?: boolean
-}> = ({ formData, fields, members = [], onResendMemberEmail, disabled = false }) => {
+}> = ({
+  formData,
+  fields,
+  members = [],
+  onResendMemberEmail,
+  onResendMemberAccountEmail,
+  accountNotificationEnabled = false,
+  disabled = false,
+}) => {
   const formValues = parseJsonRecord(formData)
   const rawFormData = isMeaningfulText(formData) && !formValues ? formData : null
   const knownFormFields = new Set(fields.map((field) => field.name))
@@ -232,6 +242,17 @@ export const RegistrationSubmissionDetails: FC<{
                               disabled={disabled || !member.email}
                             >
                               重新发信
+                            </Button>
+                          )}
+                          {onResendMemberAccountEmail && (
+                            <Button
+                              size="compact-xs"
+                              variant="light"
+                              color="orange"
+                              onClick={() => onResendMemberAccountEmail(index + 1)}
+                              disabled={disabled || !accountNotificationEnabled || !member.email}
+                            >
+                              发送账号通知
                             </Button>
                           )}
                         </Group>

@@ -1014,6 +1014,75 @@ public class RegistrationController(
         return Ok(new RequestResponse("队员邀请邮件已重新发送", StatusCodes.Status200OK));
     }
 
+    [HttpPost("{id:int}/captain/resend-account-creation-email")]
+    [RequireAdmin]
+    public async Task<IActionResult> ResendCaptainAccountCreationEmail(int id, CancellationToken token)
+    {
+        var registration = await registrationRepository.GetRegistrationById(id, token);
+        if (registration is null)
+            return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+        if (!string.Equals(registration.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new RequestResponse("仅已通过报名可以重新发送账号创建通知"));
+        if (registration.TeamId is not { } teamId)
+            return BadRequest(new RequestResponse("报名尚未创建队伍账号"));
+
+        var game = await gameRepository.GetGameById(registration.GameId, token);
+        var team = await teamRepository.GetTeamById(teamId, token);
+        if (game is null || team is null)
+            return NotFound(new RequestResponse("报名关联数据不存在"));
+
+        var captain = team.Members.FirstOrDefault(member => member.Id == team.CaptainId);
+        if (captain is null || string.IsNullOrWhiteSpace(captain.Email))
+            return BadRequest(new RequestResponse("队长账号或邮箱不存在"));
+
+        return await ResetPasswordAndQueueAccountCreationEmail(game, team.Name, captain, "队长", token);
+    }
+
+    [HttpPost("{id:int}/members/{memberIndex:int}/resend-account-creation-email")]
+    [RequireAdmin]
+    public async Task<IActionResult> ResendMemberAccountCreationEmail(int id, int memberIndex, CancellationToken token)
+    {
+        if (memberIndex < 1)
+            return BadRequest(new RequestResponse("队员序号无效"));
+
+        var registration = await registrationRepository.GetRegistrationById(id, token);
+        if (registration is null)
+            return NotFound(new RequestResponse("报名记录不存在", StatusCodes.Status404NotFound));
+        if (!string.Equals(registration.Status, "APPROVED", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new RequestResponse("仅已通过报名可以重新发送账号创建通知"));
+        if (registration.TeamId is not { } teamId)
+            return BadRequest(new RequestResponse("报名尚未创建队伍账号"));
+        if (string.IsNullOrWhiteSpace(registration.MemberInvitations))
+            return NotFound(new RequestResponse("队员信息不存在"));
+
+        List<MemberInvitation> invitations;
+        try
+        {
+            invitations = JsonSerializer.Deserialize<List<MemberInvitation>>(registration.MemberInvitations) ?? [];
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new RequestResponse("队员邀请数据格式错误"));
+        }
+
+        if (memberIndex > invitations.Count || string.IsNullOrWhiteSpace(invitations[memberIndex - 1].Email))
+            return NotFound(new RequestResponse("队员信息不存在"));
+
+        var game = await gameRepository.GetGameById(registration.GameId, token);
+        var team = await teamRepository.GetTeamById(teamId, token);
+        if (game is null || team is null)
+            return NotFound(new RequestResponse("报名关联数据不存在"));
+
+        var memberEmail = invitations[memberIndex - 1].Email.Trim();
+        var member = team.Members.FirstOrDefault(user => user.Id != team.CaptainId &&
+            string.Equals(user.Email, memberEmail, StringComparison.OrdinalIgnoreCase));
+        if (member is null || string.IsNullOrWhiteSpace(member.Email))
+            return BadRequest(new RequestResponse("队员账号或邮箱不存在"));
+
+        return await ResetPasswordAndQueueAccountCreationEmail(game, team.Name, member,
+            $"队员 {memberIndex}", token);
+    }
+
     [HttpPost("games/{gameId:int}/resend-pending-invitations")]
     [RequireAdmin]
     public async Task<IActionResult> ResendPendingInvitations(
@@ -1752,7 +1821,31 @@ public class RegistrationController(
             await db.SaveChangesAsync(token);
     }
 
-    private void QueueAccountCreationEmail(Game game, string email, string username, string password, string teamName)
+    private async Task<IActionResult> ResetPasswordAndQueueAccountCreationEmail(
+        Game game, string teamName, UserInfo user, string memberLabel, CancellationToken token)
+    {
+        var password = Codec.RandomPassword(16);
+        var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await userManager.ResetPasswordAsync(user, resetToken, password);
+        if (!result.Succeeded)
+        {
+            var details = string.Join("，", result.Errors.Select(error => error.Description));
+            return BadRequest(new RequestResponse(string.IsNullOrWhiteSpace(details)
+                ? "重置账号密码失败"
+                : $"重置账号密码失败：{details}"));
+        }
+
+        if (!QueueAccountCreationEmail(game, user.Email!, user.UserName ?? user.Email!, password, teamName))
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new RequestResponse("账号密码已重置，但账号创建通知加入邮件队列失败，请重新发送",
+                    StatusCodes.Status500InternalServerError));
+
+        logger.LogInformation("CYCTF account creation notification was requeued for {MemberLabel}, user {UserId}.",
+            memberLabel, user.Id);
+        return Ok(new RequestResponse($"{memberLabel}账号创建通知已发送，新密码已生效", StatusCodes.Status200OK));
+    }
+
+    private bool QueueAccountCreationEmail(Game game, string email, string username, string password, string teamName)
     {
         var safeGame = WebUtility.HtmlEncode(game.Title);
         var safeTeam = WebUtility.HtmlEncode(teamName);
@@ -1771,12 +1864,16 @@ public class RegistrationController(
         try
         {
             var content = new MailContent(email, email, title, information, globalConfig);
-            if (!mailSender.EnqueueMailContent(content))
-                logger.LogWarning("CYCTF account creation notification was not queued for email {Email}.", email);
+            if (mailSender.EnqueueMailContent(content))
+                return true;
+
+            logger.LogWarning("CYCTF account creation notification was not queued for email {Email}.", email);
+            return false;
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Failed to queue CYCTF account creation notification for email {Email}.", email);
+            return false;
         }
     }
 
