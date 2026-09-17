@@ -329,12 +329,24 @@ const CyctfRegistrations: FC = () => {
     const currentIndex = Math.max(selectedIndex, 0)
     setProcessingAction(true)
     try {
-      await api.registration.registrationReviewRegistration(currentId, { status })
+      const response = await api.registration.registrationReviewRegistration(currentId, { status })
       await refreshAfterAction(currentId, currentIndex)
+      const hasNotificationStats =
+        response.data.accountNotificationsQueued !== undefined ||
+        response.data.accountNotificationFailures !== undefined
+      const notificationFailures = response.data.accountNotificationFailures ?? 0
+      const notificationQueued = response.data.accountNotificationsQueued ?? 0
+      const approvalMessage = !hasNotificationStats
+        ? '审核通过'
+        : notificationFailures > 0
+          ? `审核通过，${notificationFailures} 个账号通知未加入邮件队列，请稍后重发`
+          : `审核通过，${notificationQueued} 个账号通知已加入邮件队列`
       showNotification({
-        color: 'teal',
-        message: status === 'APPROVED' ? '审核通过' : '审核已拒绝',
-        icon: <Icon path={mdiCheck} size={1} />,
+        color: status === 'APPROVED' && notificationFailures > 0 ? 'orange' : 'teal',
+        message: status === 'APPROVED' ? approvalMessage : '审核已拒绝',
+        icon: (
+          <Icon path={status === 'APPROVED' && notificationFailures > 0 ? mdiInformationOutline : mdiCheck} size={1} />
+        ),
       })
     } catch (err) {
       showErrorMsg(err, t)

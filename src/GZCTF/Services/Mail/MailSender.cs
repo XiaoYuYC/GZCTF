@@ -12,15 +12,19 @@ namespace GZCTF.Services.Mail;
 
 public sealed class MailSender : IMailSender, IDisposable
 {
+    private static readonly TimeSpan DeliveryRetryDelay = TimeSpan.FromSeconds(5);
+
     private readonly CancellationToken _cancellationToken;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly ILogger<MailSender> _logger;
-    private readonly ConcurrentQueue<MailContent> _mailQueue = new();
+    private readonly ConcurrentQueue<QueuedMail> _mailQueue = new();
     private readonly EmailConfig? _options;
     private readonly AsyncManualResetEvent _resetEvent = new();
     private readonly SmtpClient? _smtpClient;
     private readonly bool _useSmtpAuthentication;
     private bool _disposed;
+
+    private sealed record QueuedMail(MailContent Content, int Attempts);
 
     public MailSender(
         IOptions<AccountPolicy> accountPolicy,
@@ -65,16 +69,17 @@ public sealed class MailSender : IMailSender, IDisposable
             if (accountPolicy.Value.EmailConfirmationRequired)
                 ExitWithFatalMessage(StaticLocalizer[nameof(Resources.Program.MailSender_InvalidEmailConfig)]);
 
-            _smtpClient.Dispose();
-            _smtpClient = null;
-            return;
+            _logger.SystemLog("Initial SMTP connection failed; queued mail will be retried in the background.",
+                TaskStatus.Degraded, LogLevel.Warning);
+        }
+        else
+        {
+            _logger.SystemLog(StaticLocalizer[nameof(Resources.Program.MailSender_ConnectedToSmtp),
+                $"{_options.Smtp.Host}:{_options.Smtp.Port}"], TaskStatus.Success, LogLevel.Debug);
         }
 
-        _logger.SystemLog(StaticLocalizer[nameof(Resources.Program.MailSender_ConnectedToSmtp),
-            $"{_options.Smtp.Host}:{_options.Smtp.Port}"], TaskStatus.Success, LogLevel.Debug);
-
-        Task.Factory.StartNew(MailSenderWorker, _cancellationToken, TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
+        _ = Task.Factory.StartNew(MailSenderWorker, _cancellationToken, TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
     }
 
     public void Dispose()
@@ -101,41 +106,49 @@ public sealed class MailSender : IMailSender, IDisposable
             _logger.LogWarning("Skipped mail with an empty recipient.");
             return false;
         }
-
-        _mailQueue.Enqueue(content);
+        _mailQueue.Enqueue(new QueuedMail(content, 0));
         _resetEvent.Set();
         return true;
     }
 
-    public async Task SendMailContent(MailContent content)
+    public Task SendMailContent(MailContent content) => SendMailContentCore(content);
 
+    private async Task<bool> SendMailContentCore(MailContent content)
     {
-        // TODO: use GlobalConfig.DefaultEmailTemplate
-        // TODO: use a string formatter library
-        // TODO: update default template with new names
-        var emailContent = new StringBuilder(content.Template)
-            .Replace("{title}", content.Title)
-            .Replace("{information}", content.Information)
-            .Replace("{btnmsg}", content.ButtonMessage)
-            .Replace("{email}", content.Email)
-            .Replace("{userName}", content.UserName)
-            .Replace("{url}", content.Url)
-            .Replace("{nowtime}", content.Time)
-            .Replace("{platform}", content.Platform)
-            .ToString();
+        try
+        {
+            // TODO: use GlobalConfig.DefaultEmailTemplate
+            // TODO: use a string formatter library
+            // TODO: update default template with new names
+            var emailContent = new StringBuilder(content.Template)
+                .Replace("{title}", content.Title)
+                .Replace("{information}", content.Information)
+                .Replace("{btnmsg}", content.ButtonMessage)
+                .Replace("{email}", content.Email)
+                .Replace("{userName}", content.UserName)
+                .Replace("{url}", content.Url)
+                .Replace("{nowtime}", content.Time)
+                .Replace("{platform}", content.Platform)
+                .ToString();
 
-        var title = $"{content.Title} - {content.Platform}";
+            var title = $"{content.Title} - {content.Platform}";
+            var sender = string.IsNullOrWhiteSpace(_options!.SenderName) ? content.Platform : _options.SenderName;
+            var from = new MailboxAddress(sender, _options.SenderAddress!);
+            var to = new MailboxAddress(content.UserName, content.Email);
 
-        var sender = string.IsNullOrWhiteSpace(_options!.SenderName) ? content.Platform : _options.SenderName;
+            if (await SendEmailAsync(title, emailContent, from, to))
+                return true;
 
-        // SenderAddress is checked in constructor, so it won't be null here
-        var from = new MailboxAddress(sender, _options.SenderAddress!);
-
-        var to = new MailboxAddress(content.UserName, content.Email);
-
-        if (!await SendEmailAsync(title, emailContent, from, to))
             _logger.SystemLog(StaticLocalizer[nameof(Resources.Program.MailSender_MailSendFailed)],
                 TaskStatus.Failed);
+            return false;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogErrorMessage(exception,
+                StaticLocalizer[nameof(Resources.Program.MailSender_MailSendFailed)]);
+            return false;
+        }
     }
 
     public bool SendConfirmEmailUrl(string? userName, string? email, string? confirmLink,
@@ -183,33 +196,112 @@ public sealed class MailSender : IMailSender, IDisposable
 
         while (!_cancellationToken.IsCancellationRequested)
         {
-            await _resetEvent.WaitAsync(_cancellationToken);
-            _resetEvent.Reset();
-
+            var retryNeeded = false;
+            QueuedMail? currentMail = null;
             try
             {
-                if (!_smtpClient.IsConnected)
-                    await _smtpClient.ConnectAsync(_options!.Smtp!.Host, _options.Smtp.Port,
-                        cancellationToken: _cancellationToken);
+                await _resetEvent.WaitAsync(_cancellationToken);
+                _resetEvent.Reset();
 
-                if (_useSmtpAuthentication && !_smtpClient.IsAuthenticated)
-                    await _smtpClient.AuthenticateAsync(_options!.UserName, _options.Password,
-                        _cancellationToken);
+                while (!_cancellationToken.IsCancellationRequested && !_mailQueue.IsEmpty)
+                {
+                    if (!await EnsureSmtpConnectionAsync())
+                    {
+                        retryNeeded = true;
+                        break;
+                    }
 
-                while (_mailQueue.TryDequeue(out var content))
-                    await SendMailContent(content);
+                    if (!_mailQueue.TryDequeue(out currentMail))
+                        break;
+
+                    if (await SendMailContentCore(currentMail.Content))
+                    {
+                        currentMail = null;
+                        continue;
+                    }
+
+                    var nextAttempt = currentMail.Attempts + 1;
+                    _logger.LogWarning(
+                        "Mail delivery failed for {Email}; retrying attempt {Attempts}.",
+                        currentMail.Content.Email, nextAttempt);
+                    _mailQueue.Enqueue(currentMail with { Attempts = nextAttempt });
+                    currentMail = null;
+                    retryNeeded = true;
+                    break;
+                }
             }
-            catch (Exception e)
+            catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
             {
-                // Failed to establish SMTP connection, clear the queue
-                _mailQueue.Clear();
+                break;
+            }
+            catch (Exception exception)
+            {
+                if (currentMail is not null)
+                    _mailQueue.Enqueue(currentMail);
 
-                _logger.LogErrorMessage(e, StaticLocalizer[nameof(Resources.Program.MailSender_MailSendFailed)]);
+                retryNeeded = !_mailQueue.IsEmpty;
+                _logger.LogErrorMessage(exception,
+                    StaticLocalizer[nameof(Resources.Program.MailSender_MailSendFailed)]);
             }
             finally
             {
-                await _smtpClient.DisconnectAsync(true, _cancellationToken);
+                await DisconnectSmtpAsync();
             }
+
+            if (retryNeeded && !_cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(DeliveryRetryDelay, _cancellationToken);
+                    _resetEvent.Set();
+                }
+                catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task<bool> EnsureSmtpConnectionAsync()
+    {
+        if (_smtpClient is null)
+            return false;
+
+        try
+        {
+            if (!_smtpClient.IsConnected)
+                await _smtpClient.ConnectAsync(_options!.Smtp!.Host, _options.Smtp.Port,
+                    cancellationToken: _cancellationToken);
+
+            if (_useSmtpAuthentication && !_smtpClient.IsAuthenticated)
+                await _smtpClient.AuthenticateAsync(_options!.UserName, _options.Password,
+                    _cancellationToken);
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogErrorMessage(exception,
+                StaticLocalizer[nameof(Resources.Program.MailSender_MailSendFailed)]);
+            await DisconnectSmtpAsync();
+            return false;
+        }
+    }
+
+    private async Task DisconnectSmtpAsync()
+    {
+        if (_smtpClient is null)
+            return;
+
+        try
+        {
+            if (_smtpClient.IsConnected)
+                await _smtpClient.DisconnectAsync(true, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDebug(exception, "Failed to disconnect from SMTP server.");
         }
     }
 
@@ -241,14 +333,25 @@ public sealed class MailSender : IMailSender, IDisposable
             _smtpClient.Connect(_options!.Smtp!.Host, _options.Smtp.Port, cancellationToken: token);
             if (_useSmtpAuthentication)
                 _smtpClient.Authenticate(_options.UserName, _options.Password, token);
-            _smtpClient.Disconnect(true, token);
             return true;
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _logger.LogDebug(e, "{msg}",
+            _logger.LogDebug(exception, "{msg}",
                 StaticLocalizer[nameof(Resources.Program.MailSender_MailSendFailed)]);
             return false;
+        }
+        finally
+        {
+            try
+            {
+                if (_smtpClient.IsConnected)
+                    _smtpClient.Disconnect(true, CancellationToken.None);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogDebug(exception, "Failed to disconnect from SMTP server after the connection check.");
+            }
         }
     }
 

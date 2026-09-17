@@ -36,6 +36,16 @@ public class RegistrationResponse
     /// </summary>
     public bool? AllMembersAccepted { get; set; }
 
+    /// <summary>
+    /// 本次审核操作中成功加入邮件队列的账号通知数量，仅审核接口返回。
+    /// </summary>
+    public int? AccountNotificationsQueued { get; set; }
+
+    /// <summary>
+    /// 本次审核操作中未能加入邮件队列的账号通知数量，仅审核接口返回。
+    /// </summary>
+    public int? AccountNotificationFailures { get; set; }
+
     public static RegistrationResponse FromEntity(Registration entity) => new()
     {
         Id = entity.Id,

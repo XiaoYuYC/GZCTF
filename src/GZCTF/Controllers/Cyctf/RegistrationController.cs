@@ -847,20 +847,46 @@ public class RegistrationController(
 
                 await approvalTransaction.CommitAsync(token);
 
-                // 8. 仅为本次新建的账号发送初始密码；历史账号直接复用。
+                // 8. 为每个参赛账号发送通知。新建账号附带初始密码；历史账号保留原密码并发送关联通知。
+                var accountNotificationFailures = new List<string>();
                 if (captainProvision.Created)
-                    QueueAccountCreationEmail(game, captain.Email!, captain.UserName!, captainProvision.Password!, registration.TeamName!);
+                {
+                    if (!QueueAccountCreationEmail(game, captain.Email!, captain.UserName ?? captain.Email!,
+                            captainProvision.Password!, registration.TeamName!))
+                        accountNotificationFailures.Add(captain.Email!);
+                }
+                else if (!QueueExistingAccountNotification(game, captain.Email!, captain.UserName ?? captain.Email!,
+                             registration.TeamName!))
+                {
+                    accountNotificationFailures.Add(captain.Email!);
+                }
+
                 foreach (var (memberUser, memberPassword, created) in memberUsers)
                 {
-                    if (created)
-                        QueueAccountCreationEmail(game, memberUser.Email!, memberUser.UserName!, memberPassword!, registration.TeamName!);
+                    var queued = created
+                        ? QueueAccountCreationEmail(game, memberUser.Email!, memberUser.UserName ?? memberUser.Email!,
+                            memberPassword!, registration.TeamName!)
+                        : QueueExistingAccountNotification(game, memberUser.Email!, memberUser.UserName ?? memberUser.Email!,
+                            registration.TeamName!);
+                    if (!queued)
+                        accountNotificationFailures.Add(memberUser.Email!);
+                }
+
+                if (accountNotificationFailures.Count > 0)
+                {
+                    logger.LogWarning(
+                        "Account notification queue rejected for registration {RegistrationId}: {Emails}",
+                        registration.Id, string.Join(", ", accountNotificationFailures));
                 }
 
                 // 9. 处理邮箱冲突：从其他未审核报名中移除重复邮箱
                 await HandleEmailConflicts(registration,
                     allUsers.Select(user => user.Email).OfType<string>().ToList(), token);
 
-                return Ok(RegistrationResponse.FromEntity(registration));
+                var reviewResponse = RegistrationResponse.FromEntity(registration);
+                reviewResponse.AccountNotificationsQueued = allUsers.Count - accountNotificationFailures.Count;
+                reviewResponse.AccountNotificationFailures = accountNotificationFailures.Count;
+                return Ok(reviewResponse);
             }
             catch (Exception ex)
             {
@@ -1843,6 +1869,35 @@ public class RegistrationController(
         logger.LogInformation("CYCTF account creation notification was requeued for {MemberLabel}, user {UserId}.",
             memberLabel, user.Id);
         return Ok(new RequestResponse($"{memberLabel}账号创建通知已发送，新密码已生效", StatusCodes.Status200OK));
+    }
+
+    private bool QueueExistingAccountNotification(Game game, string email, string username, string teamName)
+    {
+        var safeGame = WebUtility.HtmlEncode(game.Title);
+        var safeTeam = WebUtility.HtmlEncode(teamName);
+        var safeUsername = WebUtility.HtmlEncode(username);
+
+        var title = "CYCTF 账号关联通知";
+        var information = $"您的报名申请已通过审核。<br/><br/>" +
+                          $"赛事：{safeGame}<br/>" +
+                          $"队伍：{safeTeam}<br/><br/>" +
+                          $"您的已有账号已关联到该队伍：<strong>{safeUsername}</strong><br/>" +
+                          "请使用原账号密码登录；如果忘记密码，请使用登录页面的密码找回功能。";
+
+        try
+        {
+            var content = new MailContent(email, email, title, information, globalConfig);
+            if (mailSender.EnqueueMailContent(content))
+                return true;
+
+            logger.LogWarning("CYCTF existing account notification was not queued for email {Email}.", email);
+            return false;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to queue CYCTF existing account notification for email {Email}.", email);
+            return false;
+        }
     }
 
     private bool QueueAccountCreationEmail(Game game, string email, string username, string password, string teamName)

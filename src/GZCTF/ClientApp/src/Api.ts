@@ -2412,6 +2412,10 @@ export interface RegistrationResponse {
   teamSize?: number;
   /** 是否全部成员接受邀请 */
   allMembersAccepted?: boolean;
+  /** 本次审核操作中成功加入邮件队列的账号通知数量 */
+  accountNotificationsQueued?: number | null;
+  /** 本次审核操作中未能加入邮件队列的账号通知数量 */
+  accountNotificationFailures?: number | null;
   /** 报名队员信息 */
   members?: RegistrationMemberResponse[];
 }
