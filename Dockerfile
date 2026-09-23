@@ -23,7 +23,7 @@ RUN dotnet publish GZCTF/GZCTF.csproj \
     --runtime linux-x64 \
     --self-contained false \
     --output /out \
-    --source "https://nuget.cdn.azure.cn/v3/index.json" \
+    --source "https://mirrors.cloud.tencent.com/nuget/index.json" \
     -p:SkipFrontendPublish=true && \
     rm -rf /out/publish /out/wwwroot && \
     mkdir -p /out/wwwroot && \
