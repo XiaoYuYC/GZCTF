@@ -6,7 +6,9 @@ WORKDIR /src/GZCTF/ClientApp
 COPY ./GZCTF/src/GZCTF/ClientApp/package.json ./
 COPY ./GZCTF/src/GZCTF/ClientApp/pnpm-lock.yaml ./
 COPY ./GZCTF/src/GZCTF/ClientApp/pnpm-workspace.yaml ./
-RUN corepack enable && pnpm config set registry "https://registry.npmmirror.com" && pnpm install --frozen-lockfile
+RUN npm install --global pnpm@12.6.0 --registry=https://repo.huaweicloud.com/repository/npm/ && \
+    pnpm config set registry "https://repo.huaweicloud.com/repository/npm/" && \
+    pnpm install --frozen-lockfile
 COPY ./GZCTF/src/GZCTF/ClientApp/ ./
 RUN pnpm build
 
